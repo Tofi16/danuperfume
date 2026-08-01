@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('checkout.title') }} — Danu Perfume{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-5 sm:px-8 py-16">
+
+  {% if order_success %}
+  <!-- ============ SUCCESS STATE ============ -->
+  <div class="glass rounded-2xl p-10 sm:p-16 text-center max-w-xl mx-auto animate__animated animate__fadeInUp">
+    <div class="w-20 h-20 rounded-full bg-danu-gold/15 flex items-center justify-center mx-auto mb-6">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-danu-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+      </svg>
+    </div>
+    <h1 class="font-serif text-3xl text-gold-gradient mb-3">{{ t('checkout.success_title') }}</h1>
+    <p class="text-danu-cream/70 mb-6">{{ t('checkout.success_message') }}</p>
+    <div class="glass-card inline-block rounded-full px-6 py-2 text-sm">
+      <span class="text-danu-cream/60">{{ t('checkout.order_code') }}:</span>
+      <span class="text-danu-goldlight font-semibold ml-2">{{ order.order_code }}</span>
+    </div>
+    <div class="mt-8">
+      <a href="{{ url_for('index') }}" class="btn-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest inline-block">
+        {{ t('nav.home') }}
+      </a>
+    </div>
+  </div>
+
+  {% else %}
+  <!-- ============ CHECKOUT FORM ============ -->
+  <div class="text-center mb-12 fade-up">
+    <h1 class="font-serif text-3xl sm:text-4xl text-gold-gradient mb-3">{{ t('checkout.title') }}</h1>
+    <p class="text-danu-cream/60 text-sm">{{ t('checkout.subtitle') }}</p>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-10">
+
+    <!-- Form -->
+    <form method="POST" enctype="multipart/form-data" class="lg:col-span-3 glass rounded-2xl p-6 sm:p-8 space-y-5"
+          x-data="{ fileName: '', selectedBank: {{ banks[0].id if banks else 'null' }}, deliveryType: '{{ delivery_options[0] }}' }">
+
+      <input type="hidden" name="delivery_fee" value="{{ proposed_fee }}">
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div>
+          <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.full_name') }}</label>
+          <input type="text" name="customer_name" required
+                 class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.phone') }}</label>
+          <input type="tel" name="customer_phone" required placeholder="+251 9XX XXX XXX"
+                 class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div>
+          <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">City / Town</label>
+          <input type="text" name="city" required placeholder="e.g. Addis Ababa"
+                 class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Nearest Post Office</label>
+          <select name="post_office_location" id="postOfficeSelect"
+                  class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+            <option value="">Select a post office</option>
+            {% for office in post_office_options %}
+            <option value="{{ office.name }}">{{ office.name }} · {{ office.city }}</option>
+            {% endfor %}
+          </select>
+          <p class="text-xs text-danu-cream/40 mt-2">
+            <a href="{{ url_for('post_offices') }}" class="text-danu-gold hover:underline">Browse all Ethiopia Post Offices</a>
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.address') }}</label>
+        <textarea name="delivery_address" rows="3" required
+                  class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold"></textarea>
+      </div>
+
+      <div>
+        <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Delivery Method</label>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {% for option in delivery_options %}
+          <label class="glass-card rounded-xl p-3 flex items-center gap-2 cursor-pointer text-sm"
+                 :class="deliveryType === '{{ option }}' && 'border-danu-gold'">
+            <input type="radio" name="delivery_type" value="{{ option }}" x-model="deliveryType"
+                   {% if loop.first %}checked{% endif %} class="accent-danu-gold">
+            {{ option }}
+          </label>
+          {% endfor %}
+        </div>
+        <p class="text-xs text-danu-cream/40 mt-2">A delivery fee of <span class="text-danu-goldlight">{{ currency }} {{ "%.2f"|format(proposed_fee) }}</span> will apply — our team may adjust this after confirming your exact location.</p>
+      </div>
+
+      <div>
+        <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.notes') }}</label>
+        <textarea name="notes" rows="2"
+                  class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold"></textarea>
+      </div>
+
+      <!-- Payment Accounts -->
+      <div>
+        <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.payment_method') }}</label>
+        <p class="text-xs text-danu-cream/50 mb-3">Send the total amount to one of the accounts below, then upload your receipt screenshot.</p>
+
+        <div class="space-y-3">
+          {% for bank in banks %}
+          <label class="glass-card rounded-xl p-4 flex items-center justify-between cursor-pointer"
+                 :class="selectedBank === {{ bank.id }} && 'border-danu-gold'">
+            <div class="flex items-center gap-3">
+              <input type="radio" name="bank_id" value="{{ bank.id }}" x-model="selectedBank"
+                     {% if loop.first %}checked{% endif %} class="accent-danu-gold">
+              <div>
+                <p class="text-sm font-medium text-danu-goldlight">{{ bank.bank_name }}</p>
+                <p class="text-xs text-danu-cream/60">{{ bank.account_name }}</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2" x-data="{ copied: false }">
+              <span class="text-sm font-mono tracking-wider">{{ bank.account_number }}</span>
+              <button type="button"
+                      @click.prevent="navigator.clipboard.writeText('{{ bank.account_number }}'); copied = true; setTimeout(() => copied = false, 1500)"
+                      class="text-xs px-2 py-1 rounded-full border border-danu-gold/30 hover:border-danu-gold">
+                <span x-show="!copied">Copy</span>
+                <span x-show="copied" class="text-danu-gold">Copied!</span>
+              </button>
+            </div>
+          </label>
+          {% else %}
+          <p class="text-sm text-danu-cream/40">No payment accounts configured yet. Please contact us directly.</p>
+          {% endfor %}
+        </div>
+
+        <input type="hidden" name="payment_method" :value="selectedBank ? 'Bank Transfer' : 'Telebirr'">
+      </div>
+
+      <div>
+        <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.upload_receipt') }}</label>
+        <p class="text-xs text-danu-cream/50 mb-3">{{ t('checkout.upload_hint') }}</p>
+
+        <label class="flex flex-col items-center justify-center border border-dashed border-danu-gold/40 rounded-xl p-8 cursor-pointer hover:border-danu-gold transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-danu-gold mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l-3.75 3.75M12 9.75l3.75 3.75M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+          </svg>
+          <span class="text-sm text-danu-cream/70" x-text="fileName || 'Click to select a screenshot'"></span>
+          <input type="file" name="payment_screenshot" accept="image/png, image/jpeg, image/webp, image/gif" required
+                 class="hidden" @change="fileName = $event.target.files[0]?.name || ''">
+        </label>
+      </div>
+
+      <button type="submit" class="btn-luxury w-full rounded-full py-3.5 text-sm uppercase tracking-widest">
+        {{ t('checkout.place_order') }}
+      </button>
+    </form>
+
+    <!-- Order Summary -->
+    <div class="lg:col-span-2">
+      <div class="glass rounded-2xl p-6 sm:p-8 sticky top-24">
+        <h3 class="font-serif text-xl text-danu-goldlight mb-5">{{ t('checkout.order_summary') }}</h3>
+
+        <div class="space-y-4 mb-6 max-h-80 overflow-y-auto pr-1">
+          {% for item in line_items %}
+          <div class="flex items-center gap-3">
+            <img src="{{ item.product.image_filename and url_for('static', filename='uploads/' + item.product.image_filename) or 'https://placehold.co/64x64/17161a/c9a24b?text=Danu' }}"
+                 class="w-14 h-14 object-cover rounded-lg">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm truncate">{{ item.product.name }}</p>
+              <p class="text-xs text-danu-cream/50">{{ t('cart.quantity') }}: {{ item.quantity }}</p>
+            </div>
+            <p class="text-sm text-danu-goldlight whitespace-nowrap">{{ currency }} {{ "%.2f"|format(item.subtotal) }}</p>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="border-t border-danu-gold/15 pt-4 space-y-2">
+          <div class="flex justify-between text-sm">
+            <span class="text-danu-cream/60">{{ t('cart.subtotal') }}</span>
+            <span class="text-danu-cream/80">{{ currency }} {{ "%.2f"|format(subtotal) }}</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-danu-cream/60">Delivery Fee</span>
+            <span class="text-danu-cream/80">{{ currency }} {{ "%.2f"|format(proposed_fee) }}</span>
+          </div>
+          <div class="flex justify-between items-center pt-2 border-t border-danu-gold/10">
+            <span class="text-danu-cream/70 text-sm">{{ t('checkout.total') }}</span>
+            <span class="font-serif text-2xl text-gold-gradient">{{ currency }} {{ "%.2f"|format(subtotal + proposed_fee) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

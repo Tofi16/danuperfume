@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div x-data="shopPage()" x-init="init()">
+
+  <!-- ============ HERO ============ -->
+  <section class="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
+    <div class="hero-bg"></div>
+
+    <!-- Floating particles -->
+    <div class="floating-particle" style="width:6px;height:6px;left:10%;animation-delay:0s;"></div>
+    <div class="floating-particle" style="width:4px;height:4px;left:25%;animation-delay:2s;"></div>
+    <div class="floating-particle" style="width:8px;height:8px;left:45%;animation-delay:4s;"></div>
+    <div class="floating-particle" style="width:5px;height:5px;left:65%;animation-delay:1s;"></div>
+    <div class="floating-particle" style="width:7px;height:7px;left:80%;animation-delay:3s;"></div>
+    <div class="floating-particle" style="width:4px;height:4px;left:92%;animation-delay:5s;"></div>
+
+    <div class="relative z-10 text-center px-6 max-w-3xl animate__animated animate__fadeIn">
+      <p class="uppercase tracking-[0.4em] text-xs sm:text-sm text-danu-goldlight/80 mb-5 animate__animated animate__fadeInDown">
+        {{ t('brand.tagline') }}
+      </p>
+      <h1 class="font-serif text-4xl sm:text-6xl md:text-7xl leading-tight text-gold-gradient mb-6 animate__animated animate__fadeInUp">
+        {{ t('hero.title') }}
+      </h1>
+      <p class="text-danu-cream/70 text-base sm:text-lg mb-10 max-w-xl mx-auto animate__animated animate__fadeInUp animate__delay-1s">
+        {{ t('hero.subtitle') }}
+      </p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 animate__animated animate__fadeInUp animate__delay-1s">
+        <a href="#shop" class="btn-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest">{{ t('hero.cta') }}</a>
+        <a href="#shop" class="btn-outline-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest border">{{ t('hero.cta2') }}</a>
+      </div>
+    </div>
+
+    <div class="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce text-danu-gold/60">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+      </svg>
+    </div>
+  </section>
+
+  <!-- ============ SHOP / CATALOG ============ -->
+  <section id="shop" class="max-w-7xl mx-auto px-5 sm:px-8 py-20">
+    <div class="text-center mb-12 fade-up">
+      <h2 class="font-serif text-3xl sm:text-4xl text-gold-gradient mb-3">{{ t('shop.title') }}</h2>
+      <div class="w-16 h-px bg-danu-gold/50 mx-auto"></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="glass rounded-2xl p-5 mb-10 flex flex-col lg:flex-row gap-4 items-center fade-up">
+      <input type="text" x-model="filters.q" @input.debounce.400ms="loadProducts()"
+             placeholder="{{ t('shop.search_placeholder') }}"
+             class="w-full lg:w-72 bg-transparent border border-danu-gold/25 rounded-full px-4 py-2 text-sm placeholder-danu-cream/40 focus:outline-none focus:border-danu-gold">
+
+      <select x-model="filters.category" @change="loadProducts()"
+              class="w-full lg:w-52 bg-danu-charcoal border border-danu-gold/25 rounded-full px-4 py-2 text-sm focus:outline-none focus:border-danu-gold">
+        <option value="all">{{ t('shop.filter.all_categories') }}</option>
+        {% for c in categories %}
+        <option value="{{ c.slug }}">{{ c.name }}</option>
+        {% endfor %}
+      </select>
+
+      <div class="flex items-center gap-2 w-full lg:w-auto">
+        <input type="number" x-model.number="filters.min_price" placeholder="{{ t('shop.filter.min') }}"
+               class="w-full lg:w-24 bg-transparent border border-danu-gold/25 rounded-full px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
+        <span class="text-danu-cream/40">–</span>
+        <input type="number" x-model.number="filters.max_price" placeholder="{{ t('shop.filter.max') }}"
+               class="w-full lg:w-24 bg-transparent border border-danu-gold/25 rounded-full px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
+      </div>
+
+      <button @click="loadProducts()" class="btn-luxury rounded-full px-6 py-2 text-sm w-full lg:w-auto">
+        {{ t('shop.filter.apply') }}
+      </button>
+    </div>
+
+    <!-- Loading skeleton -->
+    <div x-show="loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <template x-for="i in 8" :key="i">
+        <div class="glass-card rounded-2xl h-80 shimmer"></div>
+      </template>
+    </div>
+
+    <!-- Product Grid -->
+    <div x-show="!loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <template x-for="product in products" :key="product.id">
+        <div class="glass-card rounded-2xl overflow-hidden flex flex-col">
+          <div class="product-img-wrap relative">
+            <img :src="product.image_url || 'https://placehold.co/400x400/17161a/c9a24b?text=Danu+Perfume'"
+                 :alt="product.name" class="w-full h-56 object-cover">
+            <span x-show="product.discount_price" class="absolute top-3 left-3 bg-danu-gold text-danu-black text-[0.65rem] font-bold px-2 py-1 rounded-full uppercase">Sale</span>
+            <span x-show="product.stock === 0" class="absolute inset-0 bg-black/60 flex items-center justify-center text-xs uppercase tracking-widest text-white">
+              {{ t('shop.out_of_stock') }}
+            </span>
+          </div>
+          <div class="p-5 flex flex-col flex-1">
+            <p class="text-xs text-danu-gold/70 uppercase tracking-widest mb-1" x-text="product.category"></p>
+            <h3 class="font-serif text-lg text-danu-cream mb-1" x-text="product.name"></h3>
+            <p class="text-xs text-danu-cream/50 mb-3" x-text="product.brand"></p>
+
+            <div class="mt-auto">
+              <div class="flex items-center gap-2 mb-4">
+                <span class="text-danu-goldlight font-semibold" x-text="'{{ currency }} ' + product.effective_price"></span>
+                <span x-show="product.discount_price" class="text-xs text-danu-cream/40 line-through" x-text="'{{ currency }} ' + product.price"></span>
+              </div>
+
+              <div class="flex gap-2">
+                <button @click="addToCart(product.id)" :disabled="product.stock === 0"
+                        class="btn-luxury flex-1 rounded-full py-2 text-xs uppercase tracking-wider disabled:opacity-30">
+                  {{ t('shop.add_to_cart') }}
+                </button>
+                <button @click="openNotesModal(product)"
+                        class="w-10 h-10 flex items-center justify-center rounded-full border border-danu-gold/30 hover:border-danu-gold transition-colors" title="{{ t('shop.view_notes') }}">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-danu-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <p x-show="!loading && products.length === 0" class="text-center text-danu-cream/50 py-16">
+      No perfumes match your filters.
+    </p>
+  </section>
+
+  <!-- ============ ABOUT ============ -->
+  <section id="about" class="max-w-5xl mx-auto px-6 py-20 text-center fade-up">
+    <h2 class="font-serif text-3xl sm:text-4xl text-gold-gradient mb-6">Danu Perfume</h2>
+    <p class="text-danu-cream/70 leading-relaxed max-w-2xl mx-auto">
+      Danu Perfume curates rare and refined fragrances for those who value craftsmanship and elegance.
+      Every bottle in our collection is chosen for its character, longevity, and the story it tells.
+    </p>
+  </section>
+
+  <!-- ============ FRAGRANCE NOTES MODAL ============ -->
+  <div x-show="notesModalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center px-4" style="display:none;">
+    <div class="absolute inset-0 modal-backdrop" @click="notesModalOpen = false" x-transition.opacity></div>
+
+    <div class="relative glass rounded-2xl max-w-lg w-full p-8"
+         x-transition:enter="transition ease-out duration-400"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100">
+
+      <button @click="notesModalOpen = false" class="absolute top-4 right-5 text-2xl text-danu-cream/60 hover:text-danu-gold">&times;</button>
+
+      <template x-if="activeProduct">
+        <div>
+          <img :src="activeProduct.image_url || 'https://placehold.co/400x400/17161a/c9a24b?text=Danu'" class="w-24 h-24 object-cover rounded-xl mx-auto mb-4">
+          <h3 class="font-serif text-2xl text-center text-danu-goldlight mb-1" x-text="activeProduct.name"></h3>
+          <p class="text-center text-xs text-danu-cream/50 mb-6" x-text="activeProduct.brand"></p>
+
+          <div class="space-y-4">
+            <div>
+              <p class="text-xs uppercase tracking-widest text-danu-gold mb-2">{{ t('notes.top') }}</p>
+              <div>
+                <template x-for="n in activeProduct.top_notes" :key="n"><span class="note-pill" x-text="n"></span></template>
+              </div>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-widest text-danu-gold mb-2">{{ t('notes.heart') }}</p>
+              <div>
+                <template x-for="n in activeProduct.heart_notes" :key="n"><span class="note-pill" x-text="n"></span></template>
+              </div>
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-widest text-danu-gold mb-2">{{ t('notes.base') }}</p>
+              <div>
+                <template x-for="n in activeProduct.base_notes" :key="n"><span class="note-pill" x-text="n"></span></template>
+              </div>
+            </div>
+          </div>
+
+          <button @click="notesModalOpen = false" class="btn-outline-luxury border rounded-full w-full py-2.5 mt-8 text-sm uppercase tracking-widest">
+            {{ t('notes.close') }}
+          </button>
+        </div>
+      </template>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function shopPage() {
+    return {
+      products: [],
+      loading: true,
+      filters: { q: "", category: "all", min_price: null, max_price: null },
+      notesModalOpen: false,
+      activeProduct: null,
+
+      init() {
+        this.loadProducts();
+      },
+
+      async loadProducts() {
+        this.loading = true;
+        const params = new URLSearchParams();
+        if (this.filters.q) params.append("q", this.filters.q);
+        if (this.filters.category) params.append("category", this.filters.category);
+        if (this.filters.min_price) params.append("min_price", this.filters.min_price);
+        if (this.filters.max_price) params.append("max_price", this.filters.max_price);
+
+        const res = await fetch("{{ url_for('api_products') }}?" + params.toString());
+        this.products = await res.json();
+        this.loading = false;
+      },
+
+      async addToCart(productId) {
+        await Alpine.store("cart").addToCart(productId);
+        window.dispatchEvent(new CustomEvent("open-cart"));
+      },
+
+      openNotesModal(product) {
+        this.activeProduct = product;
+        this.notesModalOpen = true;
+      }
+    }
+  }
+</script>
+{% endblock %}

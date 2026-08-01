@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Ethiopia Post Offices — Danu Perfume{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-5 sm:px-8 py-16">
+  <div class="text-center mb-10">
+    <h1 class="font-serif text-3xl sm:text-4xl text-gold-gradient mb-3">Ethiopia Post Offices</h1>
+    <p class="text-danu-cream/60 text-sm">Search and browse Ethiopia Postal Service locations for pickup or delivery.</p>
+  </div>
+
+  <form method="GET" class="glass rounded-2xl p-5 mb-8">
+    <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Search offices</label>
+    <input type="text" name="query" value="{{ query }}" placeholder="Search by city, region, or office name"
+           class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+  </form>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+    {% for office in offices %}
+    <div class="glass rounded-2xl p-5">
+      <p class="font-serif text-lg text-danu-goldlight">{{ office.name }}</p>
+      <p class="text-sm text-danu-cream/70 mt-2">{{ office.city }} · {{ office.region }}</p>
+      <p class="text-sm text-danu-cream/50 mt-2">Postal Code: {{ office.postal_code }}</p>
+      <p class="text-sm text-danu-cream/50 mt-2">{{ office.address }}</p>
+    </div>
+    {% else %}
+    <div class="glass rounded-2xl p-6 text-center text-danu-cream/60">No post offices match your search.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

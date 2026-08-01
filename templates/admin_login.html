@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('admin.login.title') }} — Danu Perfume{% endblock %}
+
+{% block content %}
+<div class="min-h-[75vh] flex items-center justify-center px-5">
+  <div class="glass rounded-2xl p-10 w-full max-w-md animate__animated animate__fadeInUp">
+    <div class="text-center mb-8">
+      <span class="font-serif text-3xl tracking-widest text-gold-gradient font-semibold">DANU</span>
+      <p class="text-xs uppercase tracking-[0.3em] text-danu-cream/50 mt-1">{{ t('admin.login.title') }}</p>
+    </div>
+
+    <form method="POST" class="space-y-5">
+      <div>
+        <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Username</label>
+        <input type="text" name="username" required autofocus placeholder="Danuta or Tofik"
+               class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+      </div>
+
+      <div>
+        <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('admin.login.password') }}</label>
+        <input type="password" name="password" required
+               class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+      </div>
+
+      <button type="submit" class="btn-luxury w-full rounded-full py-3 text-sm uppercase tracking-widest">
+        {{ t('admin.login.submit') }}
+      </button>
+    </form>
+
+    <p class="text-center text-xs text-danu-cream/40 mt-8">
+      <a href="{{ url_for('index') }}" class="hover:text-danu-gold">&larr; {{ t('nav.home') }}</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

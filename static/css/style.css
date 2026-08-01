@@ -1,0 +1,203 @@
+/* ==========================================================================
+   Danu Perfume — Custom Styling
+   Luxury Glassmorphism, Gold Accents, Smooth Micro-interactions
+   ========================================================================== */
+
+:root {
+  --danu-gold: #c9a24b;
+  --danu-gold-light: #e6c988;
+  --danu-black: #0b0b0d;
+  --danu-charcoal: #17161a;
+  --danu-cream: #f7f3ec;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Poppins', 'Noto Sans Ethiopic', sans-serif;
+  background-color: var(--danu-black);
+  color: var(--danu-cream);
+  overflow-x: hidden;
+}
+
+.font-serif-lux {
+  font-family: 'Playfair Display', 'Noto Serif Ethiopic', serif;
+}
+
+/* ---------------- Glassmorphism ---------------- */
+.glass {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(201, 162, 75, 0.18);
+}
+
+.glass-nav {
+  background: rgba(11, 11, 13, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(201, 162, 75, 0.15);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(201, 162, 75, 0.12);
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.45s ease, box-shadow 0.45s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(201, 162, 75, 0.55);
+  box-shadow: 0 20px 45px -15px rgba(201, 162, 75, 0.25);
+}
+
+/* ---------------- Gold Gradient Text / Buttons ---------------- */
+.text-gold-gradient {
+  background: linear-gradient(120deg, #b98a2f, #f0d38a 45%, #c9a24b 75%, #8a6b23);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.btn-luxury {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(120deg, #9c7a2f, #e6c988, #9c7a2f);
+  background-size: 200% auto;
+  color: #0b0b0d;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  transition: background-position 0.6s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.btn-luxury:hover {
+  background-position: right center;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -8px rgba(201, 162, 75, 0.55);
+}
+
+.btn-outline-luxury {
+  border: 1px solid rgba(201, 162, 75, 0.5);
+  color: var(--danu-gold-light);
+  transition: all 0.35s ease;
+}
+
+.btn-outline-luxury:hover {
+  background: rgba(201, 162, 75, 0.1);
+  border-color: var(--danu-gold);
+}
+
+/* ---------------- Hero background animation ---------------- */
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(201, 162, 75, 0.18), transparent 45%),
+    radial-gradient(circle at 80% 30%, rgba(201, 162, 75, 0.12), transparent 40%),
+    radial-gradient(circle at 50% 90%, rgba(201, 162, 75, 0.08), transparent 50%),
+    linear-gradient(180deg, #0b0b0d 0%, #121014 60%, #0b0b0d 100%);
+  background-size: 200% 200%;
+  animation: heroDrift 18s ease-in-out infinite alternate;
+}
+
+@keyframes heroDrift {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 100% 100%; }
+}
+
+.floating-particle {
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(230, 201, 136, 0.9), rgba(230, 201, 136, 0));
+  animation: floatUp 12s linear infinite;
+  opacity: 0.6;
+}
+
+@keyframes floatUp {
+  0%   { transform: translateY(0) translateX(0); opacity: 0; }
+  10%  { opacity: 0.7; }
+  100% { transform: translateY(-120vh) translateX(30px); opacity: 0; }
+}
+
+/* ---------------- Scroll fade-in (GSAP hooks target these) ---------------- */
+.fade-up {
+  opacity: 0;
+  transform: translateY(40px);
+}
+
+/* ---------------- Product image zoom on hover ---------------- */
+.product-img-wrap {
+  overflow: hidden;
+  border-radius: 0.75rem;
+}
+
+.product-img-wrap img {
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.glass-card:hover .product-img-wrap img {
+  transform: scale(1.08);
+}
+
+/* ---------------- Custom scrollbar ---------------- */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--danu-black);
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--danu-gold), #8a6b23);
+  border-radius: 999px;
+}
+
+/* ---------------- Modal backdrop ---------------- */
+.modal-backdrop {
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+}
+
+/* ---------------- Notes pill ---------------- */
+.note-pill {
+  display: inline-block;
+  padding: 0.35rem 0.85rem;
+  margin: 0.2rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  border: 1px solid rgba(201, 162, 75, 0.35);
+  background: rgba(201, 162, 75, 0.08);
+  color: var(--danu-gold-light);
+}
+
+/* ---------------- Cart drawer ---------------- */
+.cart-drawer {
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---------------- Loading shimmer for admin/skeleton states ---------------- */
+.shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 37%, rgba(255,255,255,0.03) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+/* ---------------- Admin table row hover ---------------- */
+.admin-row:hover {
+  background: rgba(201, 162, 75, 0.06);
+}
+
+/* ---------------- Status badges ---------------- */
+.badge-pending { background: rgba(234, 179, 8, 0.15); color: #eab308; border: 1px solid rgba(234,179,8,0.4); }
+.badge-approved { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.4); }
+.badge-delivery { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168,85,247,0.4); }
+.badge-delivered { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.4); }
+.badge-cancelled { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.4); }
