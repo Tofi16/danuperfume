@@ -52,7 +52,7 @@ class User(UserMixin, db.Model):
 
     @property
     def is_super_admin(self):
-        return self.role == self.ROLE_SUPER_ADMIN
+        return (self.role or self.ROLE_SUPER_ADMIN) == self.ROLE_SUPER_ADMIN
 
     def __repr__(self):
         return f"<User {self.username} ({self.role})>"

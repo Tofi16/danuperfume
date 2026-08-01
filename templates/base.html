@@ -57,9 +57,8 @@
 <nav class="glass-nav fixed top-0 left-0 right-0 z-40">
   <div class="max-w-7xl mx-auto px-5 sm:px-8 py-4 flex items-center justify-between">
 
-    <a href="{{ url_for('index') }}" class="flex items-baseline gap-2 group">
-      <span class="font-serif text-2xl tracking-widest text-gold-gradient font-semibold">DANU</span>
-      <span class="hidden sm:inline text-[0.65rem] tracking-[0.3em] text-danu-goldlight/70 uppercase">Perfume</span>
+    <a href="{{ url_for('index') }}" class="flex items-center gap-2 group">
+      <span class="font-serif text-lg sm:text-2xl tracking-[0.25em] text-gold-gradient font-semibold">DANU PERFUME</span>
     </a>
 
     <div class="hidden md:flex items-center gap-8 text-sm tracking-wide">
@@ -170,7 +169,7 @@
 </div>
 
 <!-- ============ MAIN CONTENT ============ -->
-<main class="pt-20">
+<main class="pt-20 pb-12">
   {% block content %}{% endblock %}
 </main>
 
@@ -178,7 +177,7 @@
 <footer class="mt-24 border-t border-danu-gold/15 bg-danu-charcoal/60">
   <div class="max-w-7xl mx-auto px-6 py-14 grid grid-cols-1 md:grid-cols-3 gap-10">
     <div class="fade-up">
-      <h4 class="font-serif text-2xl text-gold-gradient mb-2">DANU</h4>
+      <h4 class="font-serif text-2xl text-gold-gradient mb-2">DANU PERFUME</h4>
       <p class="text-sm text-danu-cream/60 leading-relaxed">{{ t('footer.tagline') }}</p>
     </div>
     <div class="fade-up">

@@ -42,6 +42,24 @@ from models import (
 )
 from translations import TRANSLATIONS, get_text
 
+ETHIOPIA_POST_OFFICE_OPTIONS = [
+    "Addis Ababa Main Post Office",
+    "Bole Post Office",
+    "Arat Kilo Post Office",
+    "Piassa Post Office",
+    "Megenagna Post Office",
+    "Mekelle Post Office",
+    "Adama Post Office",
+    "Hawassa Post Office",
+    "Bahir Dar Post Office",
+    "Dire Dawa Post Office",
+    "Jimma Post Office",
+    "Gondar Post Office",
+    "Dessie Post Office",
+    "Debre Berhan Post Office",
+    "Awassa Post Office",
+]
+
 
 def create_app(env_name=None):
     """Application factory."""
@@ -486,6 +504,7 @@ def create_app(env_name=None):
         banks = Bank.query.filter_by(is_active=True).order_by(Bank.sort_order).all()
         delivery_options = [Order.DELIVERY_STANDARD, Order.DELIVERY_MOTORCYCLE, Order.DELIVERY_PICKUP]
         proposed_fee = roll_delivery_fee()
+        post_office_options = ETHIOPIA_POST_OFFICE_OPTIONS
 
         if request.method == "POST":
             customer_name = request.form.get("customer_name", "").strip()
@@ -539,6 +558,7 @@ def create_app(env_name=None):
                 return render_template(
                     "checkout.html", line_items=line_items, subtotal=subtotal,
                     banks=banks, delivery_options=delivery_options, proposed_fee=proposed_fee,
+                    post_office_options=post_office_options,
                 )
 
             receipt_filename = save_uploaded_file(receipt_file, subfolder="receipts")
@@ -595,6 +615,7 @@ def create_app(env_name=None):
         return render_template(
             "checkout.html", line_items=line_items, subtotal=subtotal,
             banks=banks, delivery_options=delivery_options, proposed_fee=proposed_fee,
+            post_office_options=post_office_options,
         )
 
     # =========================================================
@@ -639,6 +660,7 @@ def create_app(env_name=None):
         total_sales = db.session.query(func.coalesce(func.sum(Order.total_amount), 0)).filter(
             Order.status != Order.STATUS_CANCELLED
         ).scalar()
+        active_payment_accounts = Bank.query.filter_by(is_active=True).count()
 
         recent_orders = Order.query.order_by(Order.created_at.desc()).limit(10).all()
         low_stock_products = Product.query.filter(Product.stock <= 5).limit(5).all()
@@ -650,6 +672,7 @@ def create_app(env_name=None):
             pending_orders=pending_orders,
             total_products=total_products,
             total_sales=total_sales,
+            active_payment_accounts=active_payment_accounts,
             recent_orders=recent_orders,
             low_stock_products=low_stock_products,
             high_risk_orders=high_risk_orders,

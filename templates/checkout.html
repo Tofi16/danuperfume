@@ -62,8 +62,13 @@
         </div>
         <div>
           <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Nearest Post Office (optional)</label>
-          <input type="text" name="post_office_location" placeholder="e.g. Bole Post Office"
-                 class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+          <select name="post_office_location"
+                  class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold appearance-none">
+            <option value="">Select a nearby post office</option>
+            {% for office in post_office_options %}
+            <option value="{{ office }}">{{ office }}</option>
+            {% endfor %}
+          </select>
         </div>
       </div>
 
