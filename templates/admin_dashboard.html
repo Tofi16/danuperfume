@@ -10,24 +10,59 @@
     <!-- ============ ADMIN SIDEBAR ============ -->
     <aside class="md:w-56 shrink-0">
       <div class="glass rounded-2xl p-5 sticky top-24">
-        <p class="text-xs uppercase tracking-widest text-danu-cream/40 mb-4">{{ current_user.full_name }}</p>
+        <p class="text-xs uppercase tracking-widest text-danu-cream/40 mb-4">{{ current_user.full_name }} <span class="text-danu-gold/60">({{ (current_user.role or 'super_admin')|replace('_',' ')|title }})</span></p>
         <nav class="space-y-1 text-sm">
           <a href="{{ url_for('admin_dashboard') }}"
              class="block px-3 py-2 rounded-lg {% if view == 'overview' %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
             {{ t('admin.dashboard.title') }}
           </a>
+          <a href="{{ url_for('admin_analytics') }}"
+             class="block px-3 py-2 rounded-lg {% if view == 'analytics' %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
+            Analytics
+          </a>
           <a href="{{ url_for('admin_products') }}"
-             class="block px-3 py-2 rounded-lg {% if view in ['products', 'product_form'] %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
+             class="block px-3 py-2 rounded-lg {% if view in ['products', 'product_form', 'products_import'] %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
             {{ t('admin.nav.products') }}
           </a>
           <a href="{{ url_for('admin_orders') }}"
              class="block px-3 py-2 rounded-lg {% if view in ['orders', 'order_detail'] %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
             {{ t('admin.nav.orders') }}
           </a>
+          <a href="{{ url_for('admin_reviews') }}"
+             class="block px-3 py-2 rounded-lg {% if view == 'reviews' %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
+            Reviews
+          </a>
+          <a href="{{ url_for('admin_stock_alerts') }}"
+             class="block px-3 py-2 rounded-lg {% if view == 'stock_alerts' %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
+            Stock Alerts
+          </a>
+          <a href="{{ url_for('admin_loyalty') }}"
+             class="block px-3 py-2 rounded-lg {% if view == 'loyalty' %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
+            Loyalty
+          </a>
+          {% if current_user.is_super_admin %}
+          <p class="pt-3 pb-1 px-3 text-[0.65rem] uppercase tracking-widest text-danu-cream/30">Super Admin</p>
           <a href="{{ url_for('admin_banks') }}"
              class="block px-3 py-2 rounded-lg {% if view in ['banks', 'bank_form'] %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
             Payment Accounts
           </a>
+          <a href="{{ url_for('admin_delivery_zones') }}"
+             class="block px-3 py-2 rounded-lg {% if view == 'delivery_zones' %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
+            Delivery Zones
+          </a>
+          <a href="{{ url_for('admin_coupons') }}"
+             class="block px-3 py-2 rounded-lg {% if view == 'coupons' %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
+            Coupons
+          </a>
+          <a href="{{ url_for('admin_banners') }}"
+             class="block px-3 py-2 rounded-lg {% if view in ['banners', 'banner_form'] %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
+            Banners
+          </a>
+          <a href="{{ url_for('admin_activity_log') }}"
+             class="block px-3 py-2 rounded-lg {% if view == 'activity_log' %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
+            Activity Log
+          </a>
+          {% endif %}
           <a href="{{ url_for('admin_logout') }}" class="block px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 mt-4">
             {{ t('admin.nav.logout') }}
           </a>
@@ -101,9 +136,14 @@
       <!-- ================= PRODUCTS LIST ================= -->
       <div class="flex items-center justify-between mb-8">
         <h1 class="font-serif text-3xl text-gold-gradient">{{ t('admin.nav.products') }}</h1>
-        <a href="{{ url_for('admin_product_new') }}" class="btn-luxury rounded-full px-5 py-2.5 text-sm uppercase tracking-widest">
-          {{ t('admin.products.add') }}
-        </a>
+        <div class="flex gap-3">
+          <a href="{{ url_for('admin_products_import') }}" class="btn-outline-luxury border rounded-full px-5 py-2.5 text-sm uppercase tracking-widest">
+            Import CSV
+          </a>
+          <a href="{{ url_for('admin_product_new') }}" class="btn-luxury rounded-full px-5 py-2.5 text-sm uppercase tracking-widest">
+            {{ t('admin.products.add') }}
+          </a>
+        </div>
       </div>
 
       <div class="glass rounded-2xl overflow-hidden overflow-x-auto">
@@ -160,10 +200,16 @@
                    class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
           </div>
           <div>
-            <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('admin.products.brand') }}</label>
-            <input type="text" name="brand" value="{{ product.brand if product else '' }}"
+            <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">SKU</label>
+            <input type="text" name="sku" placeholder="DP-001" value="{{ product.sku if product else '' }}"
                    class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
           </div>
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('admin.products.brand') }}</label>
+          <input type="text" name="brand" value="{{ product.brand if product else '' }}"
+                 class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
         </div>
 
         <div>
@@ -224,13 +270,36 @@
         </div>
 
         <div>
-          <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('admin.products.image') }}</label>
+          <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('admin.products.image') }} (Cover)</label>
           {% if product and product.image_filename %}
           <img src="{{ url_for('static', filename='uploads/' + product.image_filename) }}" class="w-20 h-20 rounded-lg object-cover mb-3">
           {% endif %}
           <input type="file" name="image" accept="image/png, image/jpeg, image/webp, image/gif"
                  class="w-full text-sm text-danu-cream/70 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-danu-gold/15 file:text-danu-goldlight">
         </div>
+
+        {% if product %}
+        <div>
+          <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Gallery Images (multiple angles)</label>
+          {% if product.gallery_images %}
+          <div class="flex flex-wrap gap-3 mb-3">
+            {% for img in product.gallery_images %}
+            <div class="relative">
+              <img src="{{ url_for('static', filename='uploads/' + img.filename) }}" class="w-16 h-16 rounded-lg object-cover">
+              <form method="POST" action="{{ url_for('admin_product_gallery_delete', image_id=img.id) }}" class="absolute -top-2 -right-2">
+                <button type="submit" class="w-5 h-5 bg-red-500 text-white rounded-full text-xs leading-none">&times;</button>
+              </form>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+          <input type="file" name="gallery_images" accept="image/png, image/jpeg, image/webp, image/gif" multiple
+                 class="w-full text-sm text-danu-cream/70 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-danu-gold/15 file:text-danu-goldlight">
+          <p class="text-xs text-danu-cream/40 mt-1">New gallery images upload immediately when you save this form.</p>
+        </div>
+        {% else %}
+        <p class="text-xs text-danu-cream/40">Save this product first, then reopen it to add extra gallery images.</p>
+        {% endif %}
 
         <div class="flex items-center gap-6">
           <label class="flex items-center gap-2 text-sm">
@@ -267,6 +336,7 @@
               <th class="px-5 py-4">{{ t('admin.orders.customer') }}</th>
               <th class="px-5 py-4">Total</th>
               <th class="px-5 py-4">{{ t('admin.orders.status') }}</th>
+              <th class="px-5 py-4">Risk</th>
               <th class="px-5 py-4">Date</th>
               <th class="px-5 py-4"></th>
             </tr>
@@ -283,13 +353,18 @@
                   {% elif o.status == 'Out for Delivery' %}badge-delivery{% elif o.status == 'Delivered' %}badge-delivered
                   {% else %}badge-cancelled{% endif %}">{{ o.status }}</span>
               </td>
+              <td class="px-5 py-3">
+                <span class="text-xs px-2 py-1 rounded-full {% if o.risk_level == 'High' %}badge-cancelled{% elif o.risk_level == 'Medium' %}badge-pending{% else %}badge-delivered{% endif %}" title="{{ o.risk_reasons or '' }}">
+                  {% if o.risk_level == 'High' %}🔴{% elif o.risk_level == 'Medium' %}🟡{% else %}🟢{% endif %} {{ o.risk_level }}
+                </span>
+              </td>
               <td class="px-5 py-3 text-danu-cream/50 text-xs">{{ o.created_at.strftime('%d %b %Y') }}</td>
               <td class="px-5 py-3 text-right">
                 <a href="{{ url_for('admin_order_detail', order_id=o.id) }}" class="text-danu-gold hover:underline text-xs">{{ t('admin.orders.view') }}</a>
               </td>
             </tr>
             {% else %}
-            <tr><td colspan="6" class="px-5 py-8 text-center text-danu-cream/40">No orders found.</td></tr>
+            <tr><td colspan="7" class="px-5 py-8 text-center text-danu-cream/40">No orders found.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -297,13 +372,20 @@
 
       {% elif view == 'order_detail' %}
       <!-- ================= ORDER DETAIL ================= -->
-      <div class="flex items-center justify-between mb-6">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
         <h1 class="font-serif text-3xl text-gold-gradient">{{ order.order_code }}</h1>
-        <span class="text-xs px-3 py-1.5 rounded-full
-          {% if order.status == 'Pending' %}badge-pending{% elif order.status == 'Approved' %}badge-approved
-          {% elif order.status == 'Out for Delivery' %}badge-delivery{% elif order.status == 'Delivered' %}badge-delivered
-          {% else %}badge-cancelled{% endif %}">{{ order.status }}</span>
+        <div class="flex items-center gap-2">
+          <span class="text-xs px-2 py-1 rounded-full {% if order.risk_level == 'High' %}badge-cancelled{% elif order.risk_level == 'Medium' %}badge-pending{% else %}badge-delivered{% endif %}" title="{{ order.risk_reasons or '' }}">
+            {% if order.risk_level == 'High' %}🔴{% elif order.risk_level == 'Medium' %}🟡{% else %}🟢{% endif %} {{ order.risk_level }} Risk
+          </span>
+          <span class="text-xs px-3 py-1.5 rounded-full
+            {% if order.status == 'Pending' %}badge-pending{% elif order.status == 'Approved' %}badge-approved
+            {% elif order.status == 'Out for Delivery' %}badge-delivery{% elif order.status == 'Delivered' %}badge-delivered
+            {% else %}badge-cancelled{% endif %}">{{ order.status }}</span>
+          <a href="{{ url_for('admin_order_invoice', order_id=order.id) }}" target="_blank" class="btn-outline-luxury border rounded-full px-4 py-1.5 text-xs uppercase tracking-widest">Invoice</a>
+        </div>
       </div>
+      {% if order.risk_reasons %}<p class="text-xs text-danu-cream/50 mb-6">Risk flags: {{ order.risk_reasons }}</p>{% else %}<div class="mb-6"></div>{% endif %}
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2 space-y-6">
@@ -322,6 +404,12 @@
                 <span class="text-danu-cream/60">{{ t('cart.subtotal') }}</span>
                 <span class="text-danu-cream/80">{{ currency }} {{ "%.2f"|format(order.subtotal_amount) }}</span>
               </div>
+              {% if order.discount_amount and order.discount_amount > 0 %}
+              <div class="flex justify-between text-sm">
+                <span class="text-danu-cream/60">Coupon ({{ order.coupon_code }})</span>
+                <span class="text-red-400">-{{ currency }} {{ "%.2f"|format(order.discount_amount) }}</span>
+              </div>
+              {% endif %}
               <div class="flex justify-between text-sm">
                 <span class="text-danu-cream/60">Delivery Fee</span>
                 <span class="text-danu-cream/80">{{ currency }} {{ "%.2f"|format(order.delivery_fee) }}</span>
@@ -330,8 +418,16 @@
                 <span class="text-sm text-danu-cream/70">{{ t('checkout.total') }}</span>
                 <span class="font-serif text-xl text-gold-gradient">{{ currency }} {{ "%.2f"|format(order.total_amount) }}</span>
               </div>
+              <p class="text-xs text-danu-cream/40 pt-1">Loyalty points earned: {{ order.points_earned }}</p>
             </div>
           </div>
+
+          {% if order.is_gift %}
+          <div class="glass rounded-2xl p-6 border border-danu-gold/30">
+            <h3 class="font-serif text-lg text-danu-goldlight mb-2">🎁 Gift Order</h3>
+            <p class="text-sm text-danu-cream/70">"{{ order.gift_message or 'No message left.' }}"</p>
+          </div>
+          {% endif %}
 
           <div class="glass rounded-2xl p-6">
             <h3 class="font-serif text-lg text-danu-goldlight mb-4">{{ t('admin.orders.receipt') }} ({{ order.payment_method }}{% if order.bank %} — {{ order.bank.bank_name }}{% endif %})</h3>
@@ -359,17 +455,21 @@
           </div>
 
           <div class="glass rounded-2xl p-6">
-            <h3 class="font-serif text-lg text-danu-goldlight mb-4">Delivery Fee</h3>
+            <h3 class="font-serif text-lg text-danu-goldlight mb-4">Delivery &amp; Rider</h3>
             <form method="POST" action="{{ url_for('admin_order_update_delivery_fee', order_id=order.id) }}" class="space-y-3">
               <select name="delivery_type" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
                 <option value="Standard Courier" {% if order.delivery_type == 'Standard Courier' %}selected{% endif %}>Standard Courier</option>
                 <option value="Motorcycle Rider" {% if order.delivery_type == 'Motorcycle Rider' %}selected{% endif %}>Motorcycle Rider</option>
                 <option value="Post Office Pickup" {% if order.delivery_type == 'Post Office Pickup' %}selected{% endif %}>Post Office Pickup</option>
               </select>
-              <input type="number" step="0.01" min="0" name="delivery_fee" value="{{ order.delivery_fee }}"
+              <input type="number" step="0.01" min="0" name="delivery_fee" value="{{ order.delivery_fee }}" placeholder="Delivery Fee"
+                     class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
+              <input type="text" name="rider_name" value="{{ order.rider_name or '' }}" placeholder="Rider name (if Motorcycle)"
+                     class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
+              <input type="text" name="rider_phone" value="{{ order.rider_phone or '' }}" placeholder="Rider phone"
                      class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
               <button type="submit" class="btn-outline-luxury border w-full rounded-full py-2.5 text-sm uppercase tracking-widest">
-                Update Fee
+                Update Delivery
               </button>
             </form>
           </div>
@@ -389,6 +489,296 @@
           </div>
         </div>
       </div>
+
+      {% elif view == 'analytics' %}
+      <!-- ================= ANALYTICS ================= -->
+      <h1 class="font-serif text-3xl text-gold-gradient mb-8">Analytics</h1>
+      <div class="glass rounded-2xl p-6 mb-6">
+        <h3 class="font-serif text-lg text-danu-goldlight mb-4">Sales — Last 14 Days</h3>
+        <canvas id="salesChart" height="90"></canvas>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="glass rounded-2xl p-6">
+          <h3 class="font-serif text-lg text-danu-goldlight mb-4">Top Selling Products</h3>
+          <ul id="topProductsList" class="space-y-2 text-sm text-danu-cream/70"></ul>
+        </div>
+        <div class="glass rounded-2xl p-6">
+          <h3 class="font-serif text-lg text-danu-goldlight mb-4">Top Customers</h3>
+          <ul id="topCustomersList" class="space-y-2 text-sm text-danu-cream/70"></ul>
+        </div>
+      </div>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+      <script>
+        fetch("{{ url_for('admin_analytics_data') }}").then(r => r.json()).then(data => {
+          new Chart(document.getElementById('salesChart'), {
+            type: 'line',
+            data: { labels: data.labels, datasets: [{ label: 'Sales (ETB)', data: data.sales, borderColor: '#c9a24b', backgroundColor: 'rgba(201,162,75,0.15)', fill: true, tension: 0.35 }] },
+            options: { plugins: { legend: { labels: { color: '#f7f3ec' } } }, scales: { x: { ticks: { color: '#f7f3ec99' } }, y: { ticks: { color: '#f7f3ec99' } } } }
+          });
+          document.getElementById('topProductsList').innerHTML = data.top_products.map(p => `<li class="flex justify-between"><span>${p.name}</span><span class="text-danu-goldlight">${p.qty} sold</span></li>`).join('') || '<li>No sales yet.</li>';
+          document.getElementById('topCustomersList').innerHTML = data.top_customers.map(c => `<li class="flex justify-between"><span>${c.name}</span><span class="text-danu-goldlight">{{ currency }} ${c.spent.toFixed(2)}</span></li>`).join('') || '<li>No customers yet.</li>';
+        });
+      </script>
+
+      {% elif view == 'activity_log' %}
+      <!-- ================= ACTIVITY LOG ================= -->
+      <h1 class="font-serif text-3xl text-gold-gradient mb-8">Activity Log</h1>
+      <div class="glass rounded-2xl overflow-hidden overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-left text-xs uppercase tracking-widest text-danu-cream/50 border-b border-danu-gold/15">
+            <tr><th class="px-5 py-4">User</th><th class="px-5 py-4">Action</th><th class="px-5 py-4">Details</th><th class="px-5 py-4">Time</th></tr>
+          </thead>
+          <tbody>
+            {% for log in logs %}
+            <tr class="admin-row border-b border-danu-gold/5">
+              <td class="px-5 py-3">{{ log.username }}</td>
+              <td class="px-5 py-3 text-danu-goldlight">{{ log.action }}</td>
+              <td class="px-5 py-3 text-danu-cream/60">{{ log.details }}</td>
+              <td class="px-5 py-3 text-xs text-danu-cream/40">{{ log.created_at.strftime('%d %b %Y, %H:%M') }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="px-5 py-8 text-center text-danu-cream/40">No activity recorded yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% elif view == 'products_import' %}
+      <!-- ================= BULK CSV IMPORT ================= -->
+      <h1 class="font-serif text-3xl text-gold-gradient mb-8">Bulk Import Products (CSV)</h1>
+      <div class="glass rounded-2xl p-6 sm:p-8 max-w-xl space-y-5">
+        <p class="text-sm text-danu-cream/60">
+          Upload a CSV file with columns: <code class="text-danu-gold">name, sku, brand, description, price, stock, volume_ml, top_notes, heart_notes, base_notes, category_slug</code>.
+        </p>
+        <a href="{{ url_for('admin_products_import_template') }}" class="text-xs text-danu-gold hover:underline">Download CSV template →</a>
+        <form method="POST" enctype="multipart/form-data" class="space-y-4">
+          <input type="file" name="csv_file" accept=".csv" required
+                 class="w-full text-sm text-danu-cream/70 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-danu-gold/15 file:text-danu-goldlight">
+          <button type="submit" class="btn-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest">Import Products</button>
+        </form>
+      </div>
+
+      {% elif view == 'reviews' %}
+      <!-- ================= REVIEWS MODERATION ================= -->
+      <h1 class="font-serif text-3xl text-gold-gradient mb-8">Reviews</h1>
+      <h3 class="font-serif text-lg text-danu-goldlight mb-4">Pending Approval ({{ pending|length }})</h3>
+      <div class="space-y-3 mb-10">
+        {% for r in pending %}
+        <div class="glass-card rounded-xl p-4 flex items-center justify-between gap-4">
+          <div>
+            <p class="text-sm">{{ r.customer_name }} — {{ '★' * r.rating }}{{ '☆' * (5 - r.rating) }} on <span class="text-danu-goldlight">{{ r.product.name }}</span></p>
+            <p class="text-xs text-danu-cream/60 mt-1">{{ r.comment }}</p>
+          </div>
+          <div class="flex gap-2 shrink-0">
+            <form method="POST" action="{{ url_for('admin_review_approve', review_id=r.id) }}"><button class="text-xs px-3 py-1.5 rounded-full border border-green-500/40 text-green-400">Approve</button></form>
+            <form method="POST" action="{{ url_for('admin_review_delete', review_id=r.id) }}"><button class="text-xs px-3 py-1.5 rounded-full border border-red-500/40 text-red-400">Delete</button></form>
+          </div>
+        </div>
+        {% else %}
+        <p class="text-sm text-danu-cream/40">No pending reviews.</p>
+        {% endfor %}
+      </div>
+      <h3 class="font-serif text-lg text-danu-goldlight mb-4">Published</h3>
+      <div class="space-y-3">
+        {% for r in approved %}
+        <div class="glass-card rounded-xl p-4 flex items-center justify-between gap-4">
+          <div>
+            <p class="text-sm">{{ r.customer_name }} — {{ '★' * r.rating }}{{ '☆' * (5 - r.rating) }} on <span class="text-danu-goldlight">{{ r.product.name }}</span></p>
+            <p class="text-xs text-danu-cream/60 mt-1">{{ r.comment }}</p>
+          </div>
+          <form method="POST" action="{{ url_for('admin_review_delete', review_id=r.id) }}"><button class="text-xs px-3 py-1.5 rounded-full border border-red-500/40 text-red-400 shrink-0">Delete</button></form>
+        </div>
+        {% else %}
+        <p class="text-sm text-danu-cream/40">No published reviews yet.</p>
+        {% endfor %}
+      </div>
+
+      {% elif view == 'stock_alerts' %}
+      <!-- ================= STOCK ALERTS ================= -->
+      <h1 class="font-serif text-3xl text-gold-gradient mb-8">Stock Alerts</h1>
+      <div class="glass rounded-2xl overflow-hidden overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-left text-xs uppercase tracking-widest text-danu-cream/50 border-b border-danu-gold/15">
+            <tr><th class="px-5 py-4">Product</th><th class="px-5 py-4">Phone</th><th class="px-5 py-4">Requested</th><th class="px-5 py-4"></th></tr>
+          </thead>
+          <tbody>
+            {% for a in alerts %}
+            <tr class="admin-row border-b border-danu-gold/5">
+              <td class="px-5 py-3">{{ a.product.name }} <span class="text-xs text-danu-cream/40">({{ a.product.stock }} in stock)</span></td>
+              <td class="px-5 py-3 font-mono">{{ a.phone }}</td>
+              <td class="px-5 py-3 text-xs text-danu-cream/40">{{ a.created_at.strftime('%d %b %Y') }}</td>
+              <td class="px-5 py-3 text-right">
+                <form method="POST" action="{{ url_for('admin_stock_alert_mark_notified', alert_id=a.id) }}">
+                  <button class="text-xs text-danu-gold hover:underline">Mark Notified</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="px-5 py-8 text-center text-danu-cream/40">No pending stock alerts.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% elif view == 'delivery_zones' %}
+      <!-- ================= DELIVERY ZONES ================= -->
+      <h1 class="font-serif text-3xl text-gold-gradient mb-8">Delivery Zones</h1>
+      <form method="POST" action="{{ url_for('admin_delivery_zone_save') }}" class="glass rounded-2xl p-6 flex flex-col sm:flex-row gap-3 mb-8 max-w-xl">
+        <input type="text" name="city_name" placeholder="City name" required
+               class="flex-1 bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
+        <input type="number" step="0.01" name="fee" placeholder="Fee (ETB)" required
+               class="w-full sm:w-36 bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
+        <button type="submit" class="btn-luxury rounded-full px-6 py-2.5 text-sm uppercase tracking-widest whitespace-nowrap">Save</button>
+      </form>
+      <div class="glass rounded-2xl overflow-hidden overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-left text-xs uppercase tracking-widest text-danu-cream/50 border-b border-danu-gold/15">
+            <tr><th class="px-5 py-4">City</th><th class="px-5 py-4">Fixed Fee</th><th class="px-5 py-4"></th></tr>
+          </thead>
+          <tbody>
+            {% for z in zones %}
+            <tr class="admin-row border-b border-danu-gold/5">
+              <td class="px-5 py-3">{{ z.city_name }}</td>
+              <td class="px-5 py-3 text-danu-goldlight">{{ currency }} {{ "%.2f"|format(z.fee) }}</td>
+              <td class="px-5 py-3 text-right">
+                <form method="POST" action="{{ url_for('admin_delivery_zone_delete', zone_id=z.id) }}" onsubmit="return confirm('Remove this zone?');">
+                  <button class="text-xs text-red-400 hover:underline">{{ t('admin.products.delete') }}</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" class="px-5 py-8 text-center text-danu-cream/40">No delivery zones configured — the system will use a random fee instead.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% elif view == 'coupons' %}
+      <!-- ================= COUPONS ================= -->
+      <h1 class="font-serif text-3xl text-gold-gradient mb-8">Coupons</h1>
+      <form method="POST" action="{{ url_for('admin_coupon_new') }}" class="glass rounded-2xl p-6 grid grid-cols-1 sm:grid-cols-5 gap-3 mb-8">
+        <input type="text" name="code" placeholder="CODE2026" required class="bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold uppercase">
+        <select name="discount_type" class="bg-danu-charcoal border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
+          <option value="percent">% Percent</option>
+          <option value="fixed">Fixed ETB</option>
+        </select>
+        <input type="number" step="0.01" name="discount_value" placeholder="Value" required class="bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
+        <input type="number" name="usage_limit" placeholder="Usage limit" class="bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
+        <input type="date" name="expires_at" class="bg-danu-charcoal border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
+        <button type="submit" class="btn-luxury rounded-full px-6 py-2.5 text-sm uppercase tracking-widest sm:col-span-5">Create Coupon</button>
+      </form>
+      <div class="glass rounded-2xl overflow-hidden overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-left text-xs uppercase tracking-widest text-danu-cream/50 border-b border-danu-gold/15">
+            <tr><th class="px-5 py-4">Code</th><th class="px-5 py-4">Discount</th><th class="px-5 py-4">Used</th><th class="px-5 py-4">Expires</th><th class="px-5 py-4">Status</th><th class="px-5 py-4"></th></tr>
+          </thead>
+          <tbody>
+            {% for c in coupons %}
+            <tr class="admin-row border-b border-danu-gold/5">
+              <td class="px-5 py-3 font-mono text-danu-goldlight">{{ c.code }}</td>
+              <td class="px-5 py-3">{% if c.discount_type == 'percent' %}{{ c.discount_value }}%{% else %}{{ currency }} {{ c.discount_value }}{% endif %}</td>
+              <td class="px-5 py-3">{{ c.used_count }}{% if c.usage_limit %} / {{ c.usage_limit }}{% endif %}</td>
+              <td class="px-5 py-3 text-xs">{{ c.expires_at.strftime('%d %b %Y') if c.expires_at else '—' }}</td>
+              <td class="px-5 py-3">
+                <span class="text-xs px-2 py-1 rounded-full {% if c.is_active %}badge-delivered{% else %}badge-cancelled{% endif %}">{% if c.is_active %}Active{% else %}Disabled{% endif %}</span>
+              </td>
+              <td class="px-5 py-3 text-right whitespace-nowrap">
+                <form method="POST" action="{{ url_for('admin_coupon_toggle', coupon_id=c.id) }}" class="inline"><button class="text-xs text-danu-gold hover:underline mr-3">Toggle</button></form>
+                <form method="POST" action="{{ url_for('admin_coupon_delete', coupon_id=c.id) }}" class="inline" onsubmit="return confirm('Delete this coupon?');"><button class="text-xs text-red-400 hover:underline">{{ t('admin.products.delete') }}</button></form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="px-5 py-8 text-center text-danu-cream/40">No coupons yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% elif view == 'loyalty' %}
+      <!-- ================= LOYALTY ACCOUNTS ================= -->
+      <h1 class="font-serif text-3xl text-gold-gradient mb-8">Loyalty Accounts</h1>
+      <div class="glass rounded-2xl overflow-hidden overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-left text-xs uppercase tracking-widest text-danu-cream/50 border-b border-danu-gold/15">
+            <tr><th class="px-5 py-4">Customer</th><th class="px-5 py-4">Phone</th><th class="px-5 py-4">Points</th><th class="px-5 py-4">Total Spent</th><th class="px-5 py-4">Referral Code</th></tr>
+          </thead>
+          <tbody>
+            {% for a in accounts %}
+            <tr class="admin-row border-b border-danu-gold/5">
+              <td class="px-5 py-3">{{ a.customer_name or '—' }}</td>
+              <td class="px-5 py-3 font-mono">{{ a.phone }}</td>
+              <td class="px-5 py-3 text-danu-goldlight">{{ a.points }}</td>
+              <td class="px-5 py-3">{{ currency }} {{ "%.2f"|format(a.total_spent) }}</td>
+              <td class="px-5 py-3 font-mono text-xs">{{ a.referral_code or '—' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="px-5 py-8 text-center text-danu-cream/40">No loyalty accounts yet — created automatically after each order.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% elif view == 'banners' %}
+      <!-- ================= BANNERS ================= -->
+      <div class="flex items-center justify-between mb-8">
+        <h1 class="font-serif text-3xl text-gold-gradient">Homepage Banners</h1>
+        <a href="{{ url_for('admin_banner_new') }}" class="btn-luxury rounded-full px-5 py-2.5 text-sm uppercase tracking-widest">Add Banner</a>
+      </div>
+      <div class="space-y-4">
+        {% for b in banners %}
+        <div class="glass-card rounded-xl p-4 flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            {% if b.image_filename %}<img src="{{ url_for('static', filename='uploads/' + b.image_filename) }}" class="w-14 h-14 rounded-lg object-cover">{% endif %}
+            <div>
+              <p class="text-sm font-medium">{{ b.title }}</p>
+              <p class="text-xs text-danu-cream/50">{{ b.subtitle }}</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            {% if b.is_active %}
+            <span class="text-xs px-2 py-1 rounded-full badge-delivered">Live</span>
+            {% else %}
+            <form method="POST" action="{{ url_for('admin_banner_activate', banner_id=b.id) }}"><button class="text-xs px-3 py-1.5 rounded-full border border-danu-gold/40 text-danu-goldlight">Activate</button></form>
+            {% endif %}
+            <form method="POST" action="{{ url_for('admin_banner_delete', banner_id=b.id) }}" onsubmit="return confirm('Delete this banner?');"><button class="text-xs px-3 py-1.5 rounded-full border border-red-500/40 text-red-400">{{ t('admin.products.delete') }}</button></form>
+          </div>
+        </div>
+        {% else %}
+        <p class="text-sm text-danu-cream/40">No banners yet — the default hero text will show.</p>
+        {% endfor %}
+      </div>
+
+      {% elif view == 'banner_form' %}
+      <!-- ================= BANNER FORM ================= -->
+      <h1 class="font-serif text-3xl text-gold-gradient mb-8">Add Banner</h1>
+      <form method="POST" enctype="multipart/form-data" class="glass rounded-2xl p-6 sm:p-8 space-y-5 max-w-xl">
+        <div>
+          <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Title</label>
+          <input type="text" name="title" required placeholder="e.g. Timkat Special — 20% Off" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Subtitle</label>
+          <input type="text" name="subtitle" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">CTA Text</label>
+            <input type="text" name="cta_text" placeholder="Shop Now" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+          </div>
+          <div>
+            <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">CTA Link</label>
+            <input type="text" name="cta_link" placeholder="/#shop" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Background Image</label>
+          <input type="file" name="image" accept="image/png, image/jpeg, image/webp" class="w-full text-sm text-danu-cream/70 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-danu-gold/15 file:text-danu-goldlight">
+        </div>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="is_active" class="accent-danu-gold"> Make this the live homepage banner immediately
+        </label>
+        <button type="submit" class="btn-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest">Save Banner</button>
+      </form>
 
       {% elif view == 'banks' %}
       <!-- ================= PAYMENT ACCOUNTS LIST ================= -->

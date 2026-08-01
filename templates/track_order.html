@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Track Your Order — Danu Perfume{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-5 sm:px-8 py-16">
+  <div class="text-center mb-10 fade-up">
+    <h1 class="font-serif text-3xl sm:text-4xl text-gold-gradient mb-3">Track Your Order</h1>
+    <p class="text-danu-cream/60 text-sm">Enter your order code and phone number to see the current status.</p>
+  </div>
+
+  <form method="POST" class="glass rounded-2xl p-6 sm:p-8 space-y-4">
+    <div>
+      <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Order Code</label>
+      <input type="text" name="order_code" required placeholder="DP-XXXXXXXX"
+             class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm uppercase focus:outline-none focus:border-danu-gold">
+    </div>
+    <div>
+      <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Phone Number</label>
+      <input type="tel" name="phone" required placeholder="+251 9XX XXX XXX"
+             class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+    </div>
+    <button type="submit" class="btn-luxury w-full rounded-full py-3 text-sm uppercase tracking-widest">Track Order</button>
+  </form>
+
+  {% if order %}
+  <div class="glass rounded-2xl p-6 sm:p-8 mt-8 animate__animated animate__fadeInUp">
+    <div class="flex items-center justify-between mb-6">
+      <h3 class="font-serif text-xl text-danu-goldlight">{{ order.order_code }}</h3>
+      <span class="text-xs px-3 py-1.5 rounded-full
+        {% if order.status == 'Pending' %}badge-pending{% elif order.status == 'Approved' %}badge-approved
+        {% elif order.status == 'Out for Delivery' %}badge-delivery{% elif order.status == 'Delivered' %}badge-delivered
+        {% else %}badge-cancelled{% endif %}">{{ order.status }}</span>
+    </div>
+
+    <!-- Progress steps -->
+    <div class="flex items-center justify-between mb-8 text-xs text-danu-cream/50">
+      {% set steps = ['Pending', 'Approved', 'Out for Delivery', 'Delivered'] %}
+      {% for step in steps %}
+      <div class="flex-1 text-center relative">
+        <div class="w-3 h-3 rounded-full mx-auto mb-1 {% if steps.index(order.status) >= loop.index0 %}bg-danu-gold{% else %}bg-danu-cream/20{% endif %}"></div>
+        <span class="{% if steps.index(order.status) >= loop.index0 %}text-danu-goldlight{% endif %}">{{ step }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="space-y-2 text-sm">
+      <p><span class="text-danu-cream/50">Delivery Method:</span> {{ order.delivery_type }}</p>
+      <p><span class="text-danu-cream/50">City:</span> {{ order.city or '—' }}</p>
+      {% if order.rider_name %}<p><span class="text-danu-cream/50">Rider:</span> {{ order.rider_name }} ({{ order.rider_phone }})</p>{% endif %}
+      <p><span class="text-danu-cream/50">Total:</span> <span class="text-danu-goldlight">{{ currency }} {{ "%.2f"|format(order.total_amount) }}</span></p>
+      <p><span class="text-danu-cream/50">Placed:</span> {{ order.created_at.strftime('%d %b %Y, %H:%M') }}</p>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}My Data — Danu Perfume{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-5 sm:px-8 py-16">
+  <div class="text-center mb-10 fade-up">
+    <h1 class="font-serif text-3xl sm:text-4xl text-gold-gradient mb-3">My Data</h1>
+    <p class="text-danu-cream/60 text-sm">View or export the order history associated with your phone number.</p>
+  </div>
+
+  <form method="POST" class="glass rounded-2xl p-6 sm:p-8 space-y-4">
+    <p class="text-xs text-danu-cream/50">To verify it's you, enter your phone number and the code of any one order you've placed.</p>
+    <div>
+      <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Phone Number</label>
+      <input type="tel" name="phone" required class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+    </div>
+    <div>
+      <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">One Order Code</label>
+      <input type="text" name="order_code" required placeholder="DP-XXXXXXXX" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm uppercase focus:outline-none focus:border-danu-gold">
+    </div>
+    <button type="submit" class="btn-luxury w-full rounded-full py-3 text-sm uppercase tracking-widest">View My Data</button>
+  </form>
+
+  {% if data %}
+  <div class="glass rounded-2xl p-6 sm:p-8 mt-8">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-serif text-xl text-danu-goldlight">{{ data.orders|length }} Order(s) Found</h3>
+      <form method="POST" action="{{ url_for('customer_data_export_json') }}">
+        <input type="hidden" name="phone" value="{{ data.phone }}">
+        <input type="hidden" name="order_code" value="{{ data.orders[0].order_code }}">
+        <button type="submit" class="text-xs px-4 py-2 rounded-full border border-danu-gold/40 text-danu-goldlight hover:border-danu-gold">Export as JSON</button>
+      </form>
+    </div>
+    <div class="space-y-3">
+      {% for o in data.orders %}
+      <div class="glass-card rounded-xl p-4 text-sm">
+        <div class="flex justify-between mb-1">
+          <span class="text-danu-goldlight">{{ o.order_code }}</span>
+          <span class="text-danu-cream/60">{{ o.status }}</span>
+        </div>
+        <p class="text-xs text-danu-cream/50">{{ o.created_at.split('T')[0] }} — {{ currency }} {{ "%.2f"|format(o.total_amount) }}</p>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="text-xs text-danu-cream/40 mt-6">To request permanent deletion of your data, please contact hello@danuperfume.com with your phone number.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

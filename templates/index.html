@@ -20,14 +20,18 @@
         {{ t('brand.tagline') }}
       </p>
       <h1 class="font-serif text-4xl sm:text-6xl md:text-7xl leading-tight text-gold-gradient mb-6 animate__animated animate__fadeInUp">
-        {{ t('hero.title') }}
+        {{ active_banner.title if active_banner else t('hero.title') }}
       </h1>
       <p class="text-danu-cream/70 text-base sm:text-lg mb-10 max-w-xl mx-auto animate__animated animate__fadeInUp animate__delay-1s">
-        {{ t('hero.subtitle') }}
+        {{ active_banner.subtitle if active_banner else t('hero.subtitle') }}
       </p>
       <div class="flex flex-col sm:flex-row items-center justify-center gap-4 animate__animated animate__fadeInUp animate__delay-1s">
+        {% if active_banner and active_banner.cta_text %}
+        <a href="{{ active_banner.cta_link or '#shop' }}" class="btn-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest">{{ active_banner.cta_text }}</a>
+        {% else %}
         <a href="#shop" class="btn-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest">{{ t('hero.cta') }}</a>
         <a href="#shop" class="btn-outline-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest border">{{ t('hero.cta2') }}</a>
+        {% endif %}
       </div>
     </div>
 
@@ -94,18 +98,27 @@
           <div class="p-5 flex flex-col flex-1">
             <p class="text-xs text-danu-gold/70 uppercase tracking-widest mb-1" x-text="product.category"></p>
             <h3 class="font-serif text-lg text-danu-cream mb-1" x-text="product.name"></h3>
-            <p class="text-xs text-danu-cream/50 mb-3" x-text="product.brand"></p>
+            <p class="text-xs text-danu-cream/50 mb-1" x-text="product.brand"></p>
+            <div class="flex items-center gap-1 mb-2" x-show="product.review_count > 0">
+              <span class="text-danu-gold text-xs" x-text="'★'.repeat(Math.round(product.average_rating)) + '☆'.repeat(5 - Math.round(product.average_rating))"></span>
+              <span class="text-xs text-danu-cream/40" x-text="'(' + product.review_count + ')'"></span>
+            </div>
 
             <div class="mt-auto">
-              <div class="flex items-center gap-2 mb-4">
+              <div class="flex items-center gap-2 mb-1">
                 <span class="text-danu-goldlight font-semibold" x-text="'{{ currency }} ' + product.effective_price"></span>
                 <span x-show="product.discount_price" class="text-xs text-danu-cream/40 line-through" x-text="'{{ currency }} ' + product.price"></span>
               </div>
+              <p class="text-[0.65rem] text-danu-cream/30 mb-3" x-text="'≈ $' + (product.effective_price * {{ fx_rates.USD }}).toFixed(2) + ' USD'"></p>
 
               <div class="flex gap-2">
-                <button @click="addToCart(product.id)" :disabled="product.stock === 0"
-                        class="btn-luxury flex-1 rounded-full py-2 text-xs uppercase tracking-wider disabled:opacity-30">
+                <button x-show="product.stock > 0" @click="addToCart(product.id)"
+                        class="btn-luxury flex-1 rounded-full py-2 text-xs uppercase tracking-wider">
                   {{ t('shop.add_to_cart') }}
+                </button>
+                <button x-show="product.stock === 0" @click="openNotesModal(product)"
+                        class="btn-outline-luxury border flex-1 rounded-full py-2 text-xs uppercase tracking-wider">
+                  Notify Me
                 </button>
                 <button @click="openNotesModal(product)"
                         class="w-10 h-10 flex items-center justify-center rounded-full border border-danu-gold/30 hover:border-danu-gold transition-colors" title="{{ t('shop.view_notes') }}">
@@ -147,7 +160,12 @@
 
       <template x-if="activeProduct">
         <div>
-          <img :src="activeProduct.image_url || 'https://placehold.co/400x400/17161a/c9a24b?text=Danu'" class="w-24 h-24 object-cover rounded-xl mx-auto mb-4">
+          <img :src="activeProduct.image_url || 'https://placehold.co/400x400/17161a/c9a24b?text=Danu'" class="w-24 h-24 object-cover rounded-xl mx-auto mb-3">
+          <div class="flex justify-center gap-2 mb-4" x-show="activeProduct.gallery && activeProduct.gallery.length">
+            <template x-for="img in (activeProduct.gallery || [])" :key="img">
+              <img :src="img" class="w-10 h-10 object-cover rounded-lg border border-danu-gold/20">
+            </template>
+          </div>
           <h3 class="font-serif text-2xl text-center text-danu-goldlight mb-1" x-text="activeProduct.name"></h3>
           <p class="text-center text-xs text-danu-cream/50 mb-6" x-text="activeProduct.brand"></p>
 
@@ -172,7 +190,45 @@
             </div>
           </div>
 
-          <button @click="notesModalOpen = false" class="btn-outline-luxury border rounded-full w-full py-2.5 mt-8 text-sm uppercase tracking-widest">
+          <!-- Notify Me (out of stock) -->
+          <div x-show="activeProduct.stock === 0" x-data="{ phone: '', sent: false }" class="mt-6 pt-5 border-t border-danu-gold/15">
+            <p class="text-xs uppercase tracking-widest text-danu-gold mb-2">Notify Me When Back In Stock</p>
+            <div class="flex gap-2" x-show="!sent">
+              <input type="tel" x-model="phone" placeholder="+251 9XX XXX XXX" class="flex-1 bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
+              <button @click="fetch('/api/product/' + activeProduct.id + '/notify-me', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({phone}) }).then(() => sent = true)"
+                      class="btn-luxury rounded-lg px-4 text-xs uppercase">Notify Me</button>
+            </div>
+            <p x-show="sent" class="text-xs text-green-400">We'll text you when it's back!</p>
+          </div>
+
+          <!-- Reviews -->
+          <div class="mt-6 pt-5 border-t border-danu-gold/15" x-show="activeProduct.reviews && activeProduct.reviews.length">
+            <p class="text-xs uppercase tracking-widest text-danu-gold mb-3">Customer Reviews</p>
+            <div class="space-y-2 max-h-32 overflow-y-auto">
+              <template x-for="r in (activeProduct.reviews || [])" :key="r.customer_name + r.rating">
+                <div class="text-xs">
+                  <span class="text-danu-goldlight" x-text="'★'.repeat(r.rating) + '☆'.repeat(5 - r.rating)"></span>
+                  <span class="text-danu-cream/70" x-text="' ' + r.customer_name + ': ' + (r.comment || '')"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <div class="mt-6 pt-5 border-t border-danu-gold/15" x-data="{ name: '', rating: 5, comment: '', sent: false }">
+            <p class="text-xs uppercase tracking-widest text-danu-gold mb-3">Leave a Review</p>
+            <div x-show="!sent" class="space-y-2">
+              <input type="text" x-model="name" placeholder="Your name" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
+              <select x-model.number="rating" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
+                <option value="5">★★★★★</option><option value="4">★★★★☆</option><option value="3">★★★☆☆</option><option value="2">★★☆☆☆</option><option value="1">★☆☆☆☆</option>
+              </select>
+              <textarea x-model="comment" rows="2" placeholder="Your comment (optional)" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold"></textarea>
+              <button @click="fetch('/api/product/' + activeProduct.id + '/review', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({customer_name: name, rating, comment}) }).then(() => sent = true)"
+                      class="btn-outline-luxury border w-full rounded-full py-2 text-xs uppercase tracking-widest">Submit Review</button>
+            </div>
+            <p x-show="sent" class="text-xs text-green-400">Thank you! Your review is pending approval.</p>
+          </div>
+
+          <button @click="notesModalOpen = false" class="btn-outline-luxury border rounded-full w-full py-2.5 mt-6 text-sm uppercase tracking-widest">
             {{ t('notes.close') }}
           </button>
         </div>
@@ -215,9 +271,14 @@
         window.dispatchEvent(new CustomEvent("open-cart"));
       },
 
-      openNotesModal(product) {
+      async openNotesModal(product) {
         this.activeProduct = product;
         this.notesModalOpen = true;
+        try {
+          const res = await fetch(`/api/product/${product.id}`);
+          const full = await res.json();
+          this.activeProduct = { ...product, ...full };
+        } catch (e) { /* keep list data if detail fetch fails */ }
       }
     }
   }

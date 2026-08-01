@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Invoice {{ order.order_code }} — Danu Perfume</title>
+<style>
+  body { font-family: 'Georgia', serif; color: #1a1a1a; max-width: 800px; margin: 40px auto; padding: 0 20px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #c9a24b; padding-bottom: 20px; margin-bottom: 30px; }
+  .brand { font-size: 28px; letter-spacing: 4px; color: #b98a2f; font-weight: bold; }
+  .brand-sub { font-size: 11px; letter-spacing: 2px; color: #888; text-transform: uppercase; }
+  .invoice-meta { text-align: right; font-size: 13px; color: #555; }
+  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #b98a2f; margin-bottom: 6px; }
+  .two-col { display: flex; justify-content: space-between; margin-bottom: 30px; gap: 40px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; border-bottom: 1px solid #ddd; padding: 8px 0; }
+  td { padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+  .totals { width: 280px; margin-left: auto; }
+  .totals div { display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px; }
+  .totals .grand { font-size: 18px; font-weight: bold; border-top: 2px solid #c9a24b; padding-top: 10px; margin-top: 6px; color: #b98a2f; }
+  .footer { margin-top: 50px; text-align: center; font-size: 11px; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
+  .print-btn { margin: 20px 0; }
+  @media print { .print-btn { display: none; } }
+</style>
+</head>
+<body>
+
+  <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+
+  <div class="header">
+    <div>
+      <div class="brand">DANU</div>
+      <div class="brand-sub">Perfume — The Art of Fine Fragrance</div>
+    </div>
+    <div class="invoice-meta">
+      <strong>INVOICE</strong><br>
+      Order: {{ order.order_code }}<br>
+      Date: {{ order.created_at.strftime('%d %b %Y') }}<br>
+      Status: {{ order.status }}
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <div class="section-title">Billed To</div>
+      {{ order.customer_name }}<br>
+      {{ order.customer_phone }}<br>
+      {{ order.delivery_address }}<br>
+      {{ order.city or '' }}
+    </div>
+    <div>
+      <div class="section-title">Payment</div>
+      Method: {{ order.payment_method }}{% if order.bank %} ({{ order.bank.bank_name }}){% endif %}<br>
+      Delivery: {{ order.delivery_type }}
+      {% if order.rider_name %}<br>Rider: {{ order.rider_name }} ({{ order.rider_phone }}){% endif %}
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Item</th><th>Qty</th><th>Unit Price</th><th style="text-align:right;">Subtotal</th></tr>
+    </thead>
+    <tbody>
+      {% for item in order.items %}
+      <tr>
+        <td>{{ item.product_name }}</td>
+        <td>{{ item.quantity }}</td>
+        <td>{{ currency }} {{ "%.2f"|format(item.unit_price) }}</td>
+        <td style="text-align:right;">{{ currency }} {{ "%.2f"|format(item.subtotal) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div><span>Subtotal</span><span>{{ currency }} {{ "%.2f"|format(order.subtotal_amount) }}</span></div>
+    {% if order.discount_amount and order.discount_amount > 0 %}
+    <div><span>Coupon ({{ order.coupon_code }})</span><span>-{{ currency }} {{ "%.2f"|format(order.discount_amount) }}</span></div>
+    {% endif %}
+    <div><span>Delivery Fee</span><span>{{ currency }} {{ "%.2f"|format(order.delivery_fee) }}</span></div>
+    <div class="grand"><span>Total</span><span>{{ currency }} {{ "%.2f"|format(order.total_amount) }}</span></div>
+  </div>
+
+  {% if order.is_gift and order.gift_message %}
+  <p style="font-style: italic; color: #666;">🎁 Gift message: "{{ order.gift_message }}"</p>
+  {% endif %}
+
+  <div class="footer">
+    Danu Perfume &middot; Addis Ababa, Ethiopia &middot; hello@danuperfume.com<br>
+    Thank you for choosing Danu Perfume.
+  </div>
+
+</body>
+</html>

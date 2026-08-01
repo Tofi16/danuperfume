@@ -5,56 +5,42 @@ Main Flask application for Danu Perfume.
 Responsibilities:
     - App factory / initialization
     - Database (Neon PostgreSQL via SQLAlchemy) wiring
-    - Authentication (Flask-Login) for the admin dashboard
+    - Authentication (Flask-Login) + Role-Based Access Control for the admin dashboard
     - i18n language switching (dictionary-based, see translations.py)
-    - Public storefront routes (home, shop, product notes, checkout)
-    - Admin routes (login, dashboard, product CRUD, order management)
+    - Public storefront routes (home, shop, product notes, checkout, order tracking,
+      reviews, stock alerts)
+    - Admin routes (login, dashboard, product CRUD, order management, payment
+      accounts, delivery zones, coupons, loyalty, banners, activity log, analytics,
+      bulk CSV import)
     - Secure file upload handling for product images and payment receipts
+    - Lightweight fraud/risk scoring on new orders
 """
 
+import csv
+import io
 import os
 import random
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
+from functools import wraps
 
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    session, flash, jsonify, abort, send_from_directory
+    session, flash, jsonify, abort, Response
 )
 from flask_login import (
     LoginManager, login_user, logout_user, login_required, current_user
 )
 from werkzeug.utils import secure_filename
-from sqlalchemy import func, inspect, text
+from sqlalchemy import func, text
 
 from config import config_by_name
-from models import db, User, Category, Product, Order, OrderItem, Bank
+from models import (
+    db, User, ActivityLog, Category, Product, ProductImage, Review, StockAlert,
+    Bank, DeliveryZone, Coupon, LoyaltyAccount, Banner, Order, OrderItem,
+)
 from translations import TRANSLATIONS, get_text
-
-
-ETHIOPIA_POST_OFFICES = [
-    {"name": "Addis Ababa Main Post Office", "city": "Addis Ababa", "region": "Addis Ababa", "postal_code": "1000", "address": "P.O. Box 1111, Central Addis Ababa"},
-    {"name": "Bole Post Office", "city": "Addis Ababa", "region": "Addis Ababa", "postal_code": "1000", "address": "Bole Sub-city, Addis Ababa"},
-    {"name": "Megenagna Post Office", "city": "Addis Ababa", "region": "Addis Ababa", "postal_code": "1000", "address": "Megenagna, Addis Ababa"},
-    {"name": "Arada Post Office", "city": "Addis Ababa", "region": "Addis Ababa", "postal_code": "1000", "address": "Arada Sub-city, Addis Ababa"},
-    {"name": "Kirkos Post Office", "city": "Addis Ababa", "region": "Addis Ababa", "postal_code": "1000", "address": "Kirkos, Addis Ababa"},
-    {"name": "Lideta Post Office", "city": "Addis Ababa", "region": "Addis Ababa", "postal_code": "1000", "address": "Lideta, Addis Ababa"},
-    {"name": "Dire Dawa Post Office", "city": "Dire Dawa", "region": "Dire Dawa", "postal_code": "3000", "address": "Dire Dawa City"},
-    {"name": "Mekelle Post Office", "city": "Mekelle", "region": "Tigray", "postal_code": "7000", "address": "Mekelle City"},
-    {"name": "Adama Post Office", "city": "Adama", "region": "Oromia", "postal_code": "3020", "address": "Adama City"},
-    {"name": "Hawassa Post Office", "city": "Hawassa", "region": "Sidama", "postal_code": "4500", "address": "Hawassa City"},
-    {"name": "Bahir Dar Post Office", "city": "Bahir Dar", "region": "Amhara", "postal_code": "6000", "address": "Bahir Dar City"},
-    {"name": "Jimma Post Office", "city": "Jimma", "region": "Oromia", "postal_code": "3780", "address": "Jimma City"},
-    {"name": "Gondar Post Office", "city": "Gondar", "region": "Amhara", "postal_code": "6200", "address": "Gondar City"},
-    {"name": "Debre Berhan Post Office", "city": "Debre Berhan", "region": "Amhara", "postal_code": "4450", "address": "Debre Berhan City"},
-    {"name": "Asosa Post Office", "city": "Asosa", "region": "Benishangul-Gumuz", "postal_code": "300", "address": "Asosa City"},
-    {"name": "Jijiga Post Office", "city": "Jijiga", "region": "Somali", "postal_code": "4400", "address": "Jijiga City"},
-    {"name": "Shashemene Post Office", "city": "Shashemene", "region": "Oromia", "postal_code": "2600", "address": "Shashemene City"},
-    {"name": "Harar Post Office", "city": "Harar", "region": "Harari", "postal_code": "3200", "address": "Harar City"},
-    {"name": "Dessie Post Office", "city": "Dessie", "region": "Amhara", "postal_code": "3000", "address": "Dessie City"},
-    {"name": "Nekemte Post Office", "city": "Nekemte", "region": "Oromia", "postal_code": "2500", "address": "Nekemte City"},
-]
 
 
 def create_app(env_name=None):
@@ -63,6 +49,13 @@ def create_app(env_name=None):
 
     env_name = env_name or os.environ.get("FLASK_ENV", "production")
     app.config.from_object(config_by_name.get(env_name, config_by_name["production"]))
+
+    # Ensure a safe SQLite fallback is present so the app can start
+    # even if a DATABASE_URL/SQLALCHEMY_DATABASE_URI isn't provided.
+    if not app.config.get("SQLALCHEMY_DATABASE_URI") and not app.config.get("SQLALCHEMY_BINDS"):
+        default_sqlite = f"sqlite:///{os.path.join(os.path.abspath(os.path.dirname(__file__)), 'danu_perfume.db')}"
+        # Explicitly assign the fallback to ensure Flask-SQLAlchemy sees it during init
+        app.config["SQLALCHEMY_DATABASE_URI"] = default_sqlite
 
     # --- Initialize extensions ---
     db.init_app(app)
@@ -102,13 +95,21 @@ def create_app(env_name=None):
         def t(key):
             return get_text(key, current_lang)
 
+        active_banner = None
+        try:
+            active_banner = Banner.query.filter_by(is_active=True).order_by(Banner.created_at.desc()).first()
+        except Exception:  # noqa: BLE001
+            pass  # table may not exist yet on a fresh, un-migrated DB
+
         return dict(
             t=t,
             current_lang=current_lang,
             available_languages=app.config["LANGUAGES"],
             lang_names={code: TRANSLATIONS[code]["lang.name"] for code in app.config["LANGUAGES"]},
             currency=app.config["CURRENCY_SYMBOL"],
+            fx_rates=app.config["FX_RATES"],
             now=datetime.utcnow(),
+            active_banner=active_banner,
         )
 
     # =========================================================
@@ -150,6 +151,84 @@ def create_app(env_name=None):
         low = app.config["DELIVERY_FEE_MIN"]
         high = app.config["DELIVERY_FEE_MAX"]
         return Decimal(str(round(random.uniform(low, high), 2)))
+
+    def resolve_delivery_fee(city):
+        """Prefers a fixed DeliveryZone fee for the given city; falls back to a random fee."""
+        if city:
+            zone = DeliveryZone.query.filter(
+                func.lower(DeliveryZone.city_name) == city.strip().lower(),
+                DeliveryZone.is_active == True,  # noqa: E712
+            ).first()
+            if zone:
+                return zone.fee
+        return roll_delivery_fee()
+
+    # =========================================================
+    # Activity log + RBAC helpers
+    # =========================================================
+    def log_activity(action, details=""):
+        try:
+            entry = ActivityLog(
+                user_id=current_user.id if current_user.is_authenticated else None,
+                username=current_user.username if current_user.is_authenticated else "system",
+                action=action,
+                details=details[:500],
+            )
+            db.session.add(entry)
+            db.session.commit()
+        except Exception:  # noqa: BLE001
+            db.session.rollback()
+
+    def super_admin_required(view_func):
+        @wraps(view_func)
+        @login_required
+        def wrapper(*args, **kwargs):
+            if not current_user.is_super_admin:
+                flash("You don't have permission to access that page.", "error")
+                return redirect(url_for("admin_dashboard"))
+            return view_func(*args, **kwargs)
+        return wrapper
+
+    # =========================================================
+    # Fraud / risk scoring
+    # =========================================================
+    def score_order_risk(customer_phone, total_amount):
+        """A lightweight heuristic risk score shown to admins as a color-coded badge."""
+        reasons = []
+        risk = Order.RISK_LOW
+
+        if total_amount and total_amount >= Decimal(str(app.config["RISK_HIGH_ORDER_AMOUNT"])):
+            reasons.append("High order value")
+            risk = Order.RISK_MEDIUM
+
+        window_start = datetime.utcnow() - timedelta(minutes=app.config["RISK_DUPLICATE_WINDOW_MINUTES"])
+        recent_count = Order.query.filter(
+            Order.customer_phone == customer_phone,
+            Order.created_at >= window_start,
+        ).count()
+        if recent_count >= 2:
+            reasons.append(f"{recent_count} orders from this phone in {app.config['RISK_DUPLICATE_WINDOW_MINUTES']} min")
+            risk = Order.RISK_HIGH
+
+        return risk, "; ".join(reasons)
+
+    # =========================================================
+    # Loyalty helpers
+    # =========================================================
+    def award_loyalty_points(phone, customer_name, amount_spent):
+        account = LoyaltyAccount.query.filter_by(phone=phone).first()
+        if not account:
+            account = LoyaltyAccount(
+                phone=phone, customer_name=customer_name,
+                referral_code=("DANU" + uuid.uuid4().hex[:6].upper()),
+            )
+            db.session.add(account)
+
+        points = int((float(amount_spent) / 100) * app.config["LOYALTY_POINTS_PER_100_ETB"])
+        account.points += points
+        account.total_spent = (account.total_spent or 0) + amount_spent
+        account.customer_name = customer_name
+        return points
 
     # =========================================================
     # Cart helpers (session-based cart, server-side validation on checkout)
@@ -201,6 +280,7 @@ def create_app(env_name=None):
         for p in products:
             result.append({
                 "id": p.id,
+                "sku": p.sku,
                 "name": p.name,
                 "brand": p.brand,
                 "description": p.description,
@@ -210,11 +290,14 @@ def create_app(env_name=None):
                 "stock": p.stock,
                 "volume_ml": p.volume_ml,
                 "image_url": url_for("static", filename=f"uploads/{p.image_filename}") if p.image_filename else None,
+                "gallery": [url_for("static", filename=f"uploads/{img.filename}") for img in p.gallery_images],
                 "category": p.category.name if p.category else None,
                 "category_slug": p.category.slug if p.category else None,
                 "top_notes": p.top_notes_list,
                 "heart_notes": p.heart_notes_list,
                 "base_notes": p.base_notes_list,
+                "average_rating": p.average_rating,
+                "review_count": len(p.approved_reviews),
             })
         return jsonify(result)
 
@@ -224,6 +307,7 @@ def create_app(env_name=None):
         p = Product.query.get_or_404(product_id)
         return jsonify({
             "id": p.id,
+            "sku": p.sku,
             "name": p.name,
             "brand": p.brand,
             "description": p.description,
@@ -231,10 +315,65 @@ def create_app(env_name=None):
             "effective_price": float(p.effective_price),
             "volume_ml": p.volume_ml,
             "image_url": url_for("static", filename=f"uploads/{p.image_filename}") if p.image_filename else None,
+            "gallery": [url_for("static", filename=f"uploads/{img.filename}") for img in p.gallery_images],
             "top_notes": p.top_notes_list,
             "heart_notes": p.heart_notes_list,
             "base_notes": p.base_notes_list,
+            "average_rating": p.average_rating,
+            "reviews": [
+                {"customer_name": r.customer_name, "rating": r.rating, "comment": r.comment}
+                for r in p.approved_reviews
+            ],
         })
+
+    @app.route("/api/product/<int:product_id>/review", methods=["POST"])
+    def api_product_review_submit(product_id):
+        """Customers submit a review; it stays hidden until an admin approves it."""
+        product = Product.query.get_or_404(product_id)
+        data = request.get_json(silent=True) or {}
+        customer_name = (data.get("customer_name") or "").strip()
+        rating = int(data.get("rating", 5))
+        comment = (data.get("comment") or "").strip()
+
+        if not customer_name or rating < 1 or rating > 5:
+            return jsonify({"error": "Please provide your name and a rating between 1 and 5."}), 400
+
+        review = Review(
+            product_id=product.id, customer_name=customer_name,
+            rating=rating, comment=comment, is_approved=False,
+        )
+        db.session.add(review)
+        db.session.commit()
+        return jsonify({"success": True, "message": "Thank you! Your review will appear once approved."})
+
+    @app.route("/api/product/<int:product_id>/notify-me", methods=["POST"])
+    def api_stock_alert_signup(product_id):
+        """'Notify me when back in stock' signup for an out-of-stock product."""
+        product = Product.query.get_or_404(product_id)
+        data = request.get_json(silent=True) or {}
+        phone = (data.get("phone") or "").strip()
+
+        if not phone:
+            return jsonify({"error": "Phone number is required."}), 400
+
+        existing = StockAlert.query.filter_by(product_id=product.id, phone=phone, notified=False).first()
+        if not existing:
+            db.session.add(StockAlert(product_id=product.id, phone=phone))
+            db.session.commit()
+
+        return jsonify({"success": True, "message": "We'll notify you when this is back in stock."})
+
+    # --- Order Tracking (public, no login required) ---
+    @app.route("/track", methods=["GET", "POST"])
+    def track_order():
+        order = None
+        if request.method == "POST":
+            code = request.form.get("order_code", "").strip().upper()
+            phone = request.form.get("phone", "").strip()
+            order = Order.query.filter_by(order_code=code, customer_phone=phone).first()
+            if not order:
+                flash("No matching order found. Please check your order code and phone number.", "error")
+        return render_template("track_order.html", order=order)
 
     # --- Cart API (session-based, used by Alpine.js) ---
     @app.route("/api/cart", methods=["GET"])
@@ -300,38 +439,32 @@ def create_app(env_name=None):
         save_cart(cart)
         return jsonify({"success": True, "cart_count": sum(cart.values())})
 
+    @app.route("/api/coupon/validate", methods=["POST"])
+    def api_coupon_validate():
+        """Validates a coupon code against the current cart subtotal (used live in checkout.html)."""
+        data = request.get_json(silent=True) or {}
+        code = (data.get("code") or "").strip().upper()
+
+        cart = get_cart()
+        subtotal = Decimal("0")
+        for product_id_str, qty in cart.items():
+            product = db.session.get(Product, int(product_id_str))
+            if product:
+                subtotal += product.effective_price * qty
+
+        coupon = Coupon.query.filter_by(code=code).first()
+        if not coupon or not coupon.is_valid():
+            return jsonify({"valid": False, "message": "This coupon is invalid or has expired."}), 400
+
+        discount = coupon.calculate_discount(subtotal)
+        return jsonify({
+            "valid": True,
+            "code": coupon.code,
+            "discount": float(discount),
+            "new_total": float(subtotal - discount),
+        })
+
     # --- Checkout ---
-    def post_offices():
-        query = (request.args.get("query") or "").strip().lower()
-        offices = ETHIOPIA_POST_OFFICES
-        if query:
-            offices = [
-                office for office in offices
-                if query in office["name"].lower()
-                or query in office["city"].lower()
-                or query in office["region"].lower()
-                or query in office["address"].lower()
-                or query in office["postal_code"].lower()
-            ]
-        return render_template("post_offices.html", offices=offices, query=query)
-
-    def api_post_offices():
-        query = (request.args.get("query") or "").strip().lower()
-        offices = ETHIOPIA_POST_OFFICES
-        if query:
-            offices = [
-                office for office in offices
-                if query in office["name"].lower()
-                or query in office["city"].lower()
-                or query in office["region"].lower()
-                or query in office["address"].lower()
-                or query in office["postal_code"].lower()
-            ]
-        return jsonify({"results": offices})
-
-    app.add_url_rule("/post-offices", view_func=post_offices)
-    app.add_url_rule("/api/post-offices", view_func=api_post_offices)
-
     @app.route("/checkout", methods=["GET", "POST"])
     def checkout():
         cart = get_cart()
@@ -340,7 +473,6 @@ def create_app(env_name=None):
             flash("Your cart is empty.", "warning")
             return redirect(url_for("index"))
 
-        # Build line items and compute subtotal from the DATABASE (never trust client price)
         line_items = []
         subtotal = Decimal("0")
         for product_id_str, qty in cart.items():
@@ -353,10 +485,6 @@ def create_app(env_name=None):
 
         banks = Bank.query.filter_by(is_active=True).order_by(Bank.sort_order).all()
         delivery_options = [Order.DELIVERY_STANDARD, Order.DELIVERY_MOTORCYCLE, Order.DELIVERY_PICKUP]
-        post_office_options = ETHIOPIA_POST_OFFICES
-
-        # A randomized delivery fee is proposed up-front; final fee can still be
-        # adjusted by an admin when approving the order (e.g. after confirming distance).
         proposed_fee = roll_delivery_fee()
 
         if request.method == "POST":
@@ -369,7 +497,10 @@ def create_app(env_name=None):
             notes = request.form.get("notes", "").strip()
             payment_method = request.form.get("payment_method", "Telebirr")
             bank_id = request.form.get("bank_id", type=int)
-            delivery_fee = request.form.get("delivery_fee", type=str)
+            coupon_code = request.form.get("coupon_code", "").strip().upper()
+            is_gift = bool(request.form.get("is_gift"))
+            gift_message = request.form.get("gift_message", "").strip()
+            delivery_fee_raw = request.form.get("delivery_fee", "")
 
             errors = []
             if not customer_name:
@@ -388,9 +519,19 @@ def create_app(env_name=None):
                 errors.append("Invalid file type. Please upload a JPG, PNG, WEBP or GIF image.")
 
             try:
-                fee_decimal = Decimal(delivery_fee) if delivery_fee else proposed_fee
+                fee_decimal = Decimal(delivery_fee_raw) if delivery_fee_raw else resolve_delivery_fee(city)
             except InvalidOperation:
-                fee_decimal = proposed_fee
+                fee_decimal = resolve_delivery_fee(city)
+
+            # Coupon validation (server-side, authoritative)
+            discount_amount = Decimal("0")
+            applied_coupon = None
+            if coupon_code:
+                applied_coupon = Coupon.query.filter_by(code=coupon_code).first()
+                if applied_coupon and applied_coupon.is_valid():
+                    discount_amount = applied_coupon.calculate_discount(subtotal)
+                else:
+                    errors.append("The coupon code entered is invalid or expired.")
 
             if errors:
                 for e in errors:
@@ -398,11 +539,13 @@ def create_app(env_name=None):
                 return render_template(
                     "checkout.html", line_items=line_items, subtotal=subtotal,
                     banks=banks, delivery_options=delivery_options, proposed_fee=proposed_fee,
-                    post_office_options=post_office_options,
                 )
 
             receipt_filename = save_uploaded_file(receipt_file, subfolder="receipts")
-            grand_total = subtotal + fee_decimal
+            grand_total = subtotal - discount_amount + fee_decimal
+
+            risk_level, risk_reasons = score_order_risk(customer_phone, grand_total)
+            points = award_loyalty_points(customer_phone, customer_name, grand_total)
 
             new_order = Order(
                 order_code=generate_order_code(),
@@ -413,16 +556,23 @@ def create_app(env_name=None):
                 post_office_location=post_office_location,
                 delivery_type=delivery_type,
                 notes=notes,
+                is_gift=is_gift,
+                gift_message=gift_message if is_gift else None,
                 payment_method=payment_method,
                 bank_id=bank_id if bank_id else None,
                 payment_screenshot=receipt_filename,
+                coupon_code=applied_coupon.code if applied_coupon else None,
+                discount_amount=discount_amount,
                 subtotal_amount=subtotal,
                 delivery_fee=fee_decimal,
                 total_amount=grand_total,
+                points_earned=points,
+                risk_level=risk_level,
+                risk_reasons=risk_reasons,
                 status=Order.STATUS_PENDING,
             )
             db.session.add(new_order)
-            db.session.flush()  # get new_order.id before commit
+            db.session.flush()
 
             for item in line_items:
                 db.session.add(OrderItem(
@@ -432,18 +582,19 @@ def create_app(env_name=None):
                     unit_price=item["product"].effective_price,
                     quantity=item["quantity"],
                 ))
-                # Reduce stock
                 item["product"].stock = max(item["product"].stock - item["quantity"], 0)
 
+            if applied_coupon:
+                applied_coupon.used_count += 1
+
             db.session.commit()
-            save_cart({})  # clear cart
+            save_cart({})
 
             return render_template("checkout.html", order_success=True, order=new_order)
 
         return render_template(
             "checkout.html", line_items=line_items, subtotal=subtotal,
             banks=banks, delivery_options=delivery_options, proposed_fee=proposed_fee,
-            post_office_options=post_office_options,
         )
 
     # =========================================================
@@ -458,9 +609,10 @@ def create_app(env_name=None):
             username = request.form.get("username", "").strip()
             password = request.form.get("password", "")
 
-            user = User.query.filter_by(email=username).first()
+            user = User.query.filter_by(username=username).first()
             if user and user.check_password(password):
                 login_user(user)
+                log_activity("auth.login", f"{username} logged in")
                 flash("Welcome back!", "success")
                 next_page = request.args.get("next")
                 return redirect(next_page or url_for("admin_dashboard"))
@@ -472,6 +624,7 @@ def create_app(env_name=None):
     @app.route("/admin/logout")
     @login_required
     def admin_logout():
+        log_activity("auth.logout", f"{current_user.username} logged out")
         logout_user()
         flash("You have been logged out.", "success")
         return redirect(url_for("admin_login"))
@@ -489,6 +642,7 @@ def create_app(env_name=None):
 
         recent_orders = Order.query.order_by(Order.created_at.desc()).limit(10).all()
         low_stock_products = Product.query.filter(Product.stock <= 5).limit(5).all()
+        high_risk_orders = Order.query.filter_by(risk_level=Order.RISK_HIGH).order_by(Order.created_at.desc()).limit(5).all()
 
         return render_template(
             "admin_dashboard.html",
@@ -498,8 +652,60 @@ def create_app(env_name=None):
             total_sales=total_sales,
             recent_orders=recent_orders,
             low_stock_products=low_stock_products,
+            high_risk_orders=high_risk_orders,
             view="overview",
         )
+
+    # --- Analytics ---
+    @app.route("/admin/analytics")
+    @login_required
+    def admin_analytics():
+        return render_template("admin_dashboard.html", view="analytics")
+
+    @app.route("/admin/analytics/sales-data")
+    @login_required
+    def admin_analytics_data():
+        """JSON data (last 14 days) consumed by Chart.js on the analytics view."""
+        days = []
+        totals = []
+        for i in range(13, -1, -1):
+            day = (datetime.utcnow() - timedelta(days=i)).date()
+            day_total = db.session.query(func.coalesce(func.sum(Order.total_amount), 0)).filter(
+                func.date(Order.created_at) == day,
+                Order.status != Order.STATUS_CANCELLED,
+            ).scalar()
+            days.append(day.strftime("%b %d"))
+            totals.append(float(day_total))
+
+        top_products = (
+            db.session.query(OrderItem.product_name, func.sum(OrderItem.quantity).label("qty"))
+            .group_by(OrderItem.product_name)
+            .order_by(func.sum(OrderItem.quantity).desc())
+            .limit(5)
+            .all()
+        )
+        top_customers = (
+            db.session.query(Order.customer_phone, Order.customer_name, func.sum(Order.total_amount).label("spent"))
+            .filter(Order.status != Order.STATUS_CANCELLED)
+            .group_by(Order.customer_phone, Order.customer_name)
+            .order_by(func.sum(Order.total_amount).desc())
+            .limit(5)
+            .all()
+        )
+
+        return jsonify({
+            "labels": days,
+            "sales": totals,
+            "top_products": [{"name": n, "qty": int(q)} for n, q in top_products],
+            "top_customers": [{"name": n, "phone": p, "spent": float(s)} for p, n, s in top_customers],
+        })
+
+    # --- Activity Log ---
+    @app.route("/admin/activity-log")
+    @super_admin_required
+    def admin_activity_log():
+        logs = ActivityLog.query.order_by(ActivityLog.created_at.desc()).limit(200).all()
+        return render_template("admin_dashboard.html", view="activity_log", logs=logs)
 
     # --- Product CRUD ---
     @app.route("/admin/products")
@@ -515,7 +721,7 @@ def create_app(env_name=None):
         )
 
     @app.route("/admin/products/new", methods=["GET", "POST"])
-    @login_required
+    @super_admin_required
     def admin_product_new():
         categories = Category.query.all()
 
@@ -527,13 +733,15 @@ def create_app(env_name=None):
 
             db.session.add(product)
             db.session.commit()
+            _save_gallery_images(product)
+            log_activity("product.create", product.name)
             flash("Product created successfully.", "success")
             return redirect(url_for("admin_products"))
 
         return render_template("admin_dashboard.html", view="product_form", categories=categories, product=None)
 
     @app.route("/admin/products/<int:product_id>/edit", methods=["GET", "POST"])
-    @login_required
+    @super_admin_required
     def admin_product_edit(product_id):
         product = Product.query.get_or_404(product_id)
         categories = Category.query.all()
@@ -545,23 +753,48 @@ def create_app(env_name=None):
                 return render_template("admin_dashboard.html", view="product_form", categories=categories, product=product)
 
             db.session.commit()
+            _save_gallery_images(product)
+            log_activity("product.update", product.name)
             flash("Product updated successfully.", "success")
             return redirect(url_for("admin_products"))
 
         return render_template("admin_dashboard.html", view="product_form", categories=categories, product=product)
 
     @app.route("/admin/products/<int:product_id>/delete", methods=["POST"])
-    @login_required
+    @super_admin_required
     def admin_product_delete(product_id):
         product = Product.query.get_or_404(product_id)
+        log_activity("product.delete", product.name)
         db.session.delete(product)
         db.session.commit()
         flash("Product deleted.", "success")
         return redirect(url_for("admin_products"))
 
+    def _save_gallery_images(product):
+        """Handles the multi-file 'gallery_images' input for a Product form."""
+        files = request.files.getlist("gallery_images")
+        next_sort = len(product.gallery_images)
+        for f in files:
+            if f and f.filename:
+                saved = save_uploaded_file(f, subfolder="products")
+                if saved:
+                    db.session.add(ProductImage(product_id=product.id, filename=saved, sort_order=next_sort))
+                    next_sort += 1
+        db.session.commit()
+
+    @app.route("/admin/products/gallery/<int:image_id>/delete", methods=["POST"])
+    @super_admin_required
+    def admin_product_gallery_delete(image_id):
+        image = ProductImage.query.get_or_404(image_id)
+        product_id = image.product_id
+        db.session.delete(image)
+        db.session.commit()
+        return redirect(url_for("admin_product_edit", product_id=product_id))
+
     def _build_product_from_form(req, categories, existing=None):
         """Shared logic to create/update a Product from a submitted form."""
         name = req.form.get("name", "").strip()
+        sku = req.form.get("sku", "").strip() or None
         brand = req.form.get("brand", "").strip()
         description = req.form.get("description", "").strip()
         category_id = req.form.get("category_id")
@@ -593,6 +826,7 @@ def create_app(env_name=None):
 
         product = existing or Product()
         product.name = name
+        product.sku = sku
         product.brand = brand
         product.description = description
         product.category_id = int(category_id)
@@ -613,6 +847,115 @@ def create_app(env_name=None):
                 product.image_filename = saved_name
 
         return product, None
+
+    # --- Bulk CSV Import ---
+    @app.route("/admin/products/import", methods=["GET", "POST"])
+    @super_admin_required
+    def admin_products_import():
+        categories = {c.slug: c for c in Category.query.all()}
+
+        if request.method == "POST":
+            csv_file = request.files.get("csv_file")
+            if not csv_file or not csv_file.filename.lower().endswith(".csv"):
+                flash("Please upload a valid .csv file.", "error")
+                return render_template("admin_dashboard.html", view="products_import")
+
+            stream = io.StringIO(csv_file.stream.read().decode("utf-8-sig"))
+            reader = csv.DictReader(stream)
+
+            created, skipped = 0, 0
+            for row in reader:
+                name = (row.get("name") or "").strip()
+                category_slug = (row.get("category_slug") or "").strip()
+                if not name or category_slug not in categories:
+                    skipped += 1
+                    continue
+
+                try:
+                    price = Decimal(row.get("price") or "0")
+                except InvalidOperation:
+                    skipped += 1
+                    continue
+
+                product = Product(
+                    name=name,
+                    sku=(row.get("sku") or "").strip() or None,
+                    brand=(row.get("brand") or "").strip(),
+                    description=(row.get("description") or "").strip(),
+                    price=price,
+                    stock=int(row.get("stock") or 0),
+                    volume_ml=int(row.get("volume_ml") or 50),
+                    top_notes=(row.get("top_notes") or "").strip(),
+                    heart_notes=(row.get("heart_notes") or "").strip(),
+                    base_notes=(row.get("base_notes") or "").strip(),
+                    category_id=categories[category_slug].id,
+                    is_active=True,
+                )
+                db.session.add(product)
+                created += 1
+
+            db.session.commit()
+            log_activity("product.bulk_import", f"{created} created, {skipped} skipped")
+            flash(f"Import complete: {created} products created, {skipped} rows skipped.", "success")
+            return redirect(url_for("admin_products"))
+
+        return render_template("admin_dashboard.html", view="products_import")
+
+    @app.route("/admin/products/import/template.csv")
+    @login_required
+    def admin_products_import_template():
+        header = "name,sku,brand,description,price,stock,volume_ml,top_notes,heart_notes,base_notes,category_slug\n"
+        example = 'Golden Oud,DP-001,Danu,"A rich oud fragrance",1200,20,50,"Bergamot, Saffron","Oud, Rose","Amber, Musk",oud-attar\n'
+        return Response(header + example, mimetype="text/csv", headers={
+            "Content-Disposition": "attachment; filename=danu_product_import_template.csv"
+        })
+
+    # --- Reviews Moderation ---
+    @app.route("/admin/reviews")
+    @login_required
+    def admin_reviews():
+        pending = Review.query.filter_by(is_approved=False).order_by(Review.created_at.desc()).all()
+        approved = Review.query.filter_by(is_approved=True).order_by(Review.created_at.desc()).limit(50).all()
+        return render_template("admin_dashboard.html", view="reviews", pending=pending, approved=approved)
+
+    @app.route("/admin/reviews/<int:review_id>/approve", methods=["POST"])
+    @login_required
+    def admin_review_approve(review_id):
+        review = Review.query.get_or_404(review_id)
+        review.is_approved = True
+        db.session.commit()
+        log_activity("review.approve", f"{review.product.name} by {review.customer_name}")
+        flash("Review approved and published.", "success")
+        return redirect(url_for("admin_reviews"))
+
+    @app.route("/admin/reviews/<int:review_id>/delete", methods=["POST"])
+    @login_required
+    def admin_review_delete(review_id):
+        review = Review.query.get_or_404(review_id)
+        db.session.delete(review)
+        db.session.commit()
+        flash("Review deleted.", "success")
+        return redirect(url_for("admin_reviews"))
+
+    # --- Stock Alerts ---
+    @app.route("/admin/stock-alerts")
+    @login_required
+    def admin_stock_alerts():
+        alerts = (
+            StockAlert.query.filter_by(notified=False)
+            .join(Product)
+            .order_by(StockAlert.created_at.desc())
+            .all()
+        )
+        return render_template("admin_dashboard.html", view="stock_alerts", alerts=alerts)
+
+    @app.route("/admin/stock-alerts/<int:alert_id>/mark-notified", methods=["POST"])
+    @login_required
+    def admin_stock_alert_mark_notified(alert_id):
+        alert = StockAlert.query.get_or_404(alert_id)
+        alert.notified = True
+        db.session.commit()
+        return redirect(url_for("admin_stock_alerts"))
 
     # --- Order Management ---
     @app.route("/admin/orders")
@@ -664,6 +1007,7 @@ def create_app(env_name=None):
         if new_status in valid_statuses:
             order.status = new_status
             db.session.commit()
+            log_activity("order.status_update", f"{order.order_code} -> {new_status}")
             flash(f"Order {order.order_code} updated to {new_status}.", "success")
         else:
             flash("Invalid status.", "error")
@@ -673,8 +1017,6 @@ def create_app(env_name=None):
     @app.route("/admin/orders/<int:order_id>/delivery-fee", methods=["POST"])
     @login_required
     def admin_order_update_delivery_fee(order_id):
-        """Lets an admin adjust the delivery fee (e.g. after confirming distance
-        with the customer) and recomputes the order total automatically."""
         order = Order.query.get_or_404(order_id)
 
         try:
@@ -684,21 +1026,31 @@ def create_app(env_name=None):
             return redirect(url_for("admin_order_detail", order_id=order.id))
 
         order.delivery_fee = new_fee
-        order.total_amount = order.subtotal_amount + new_fee
+        order.total_amount = order.subtotal_amount - order.discount_amount + new_fee
         order.delivery_type = request.form.get("delivery_type", order.delivery_type)
+        order.rider_name = request.form.get("rider_name", "").strip() or None
+        order.rider_phone = request.form.get("rider_phone", "").strip() or None
         db.session.commit()
-        flash("Delivery fee updated.", "success")
+        log_activity("order.delivery_update", order.order_code)
+        flash("Delivery details updated.", "success")
         return redirect(url_for("admin_order_detail", order_id=order.id))
+
+    @app.route("/admin/orders/<int:order_id>/invoice")
+    @login_required
+    def admin_order_invoice(order_id):
+        """Printable HTML invoice (use the browser's Print -> Save as PDF)."""
+        order = Order.query.get_or_404(order_id)
+        return render_template("invoice.html", order=order)
 
     # --- Bank / Payment Account Management ---
     @app.route("/admin/banks")
-    @login_required
+    @super_admin_required
     def admin_banks():
         banks = Bank.query.order_by(Bank.sort_order, Bank.created_at).all()
         return render_template("admin_dashboard.html", view="banks", banks=banks)
 
     @app.route("/admin/banks/new", methods=["GET", "POST"])
-    @login_required
+    @super_admin_required
     def admin_bank_new():
         if request.method == "POST":
             bank_name = request.form.get("bank_name", "").strip()
@@ -722,13 +1074,14 @@ def create_app(env_name=None):
             )
             db.session.add(bank)
             db.session.commit()
+            log_activity("bank.create", bank_name)
             flash("Payment account added.", "success")
             return redirect(url_for("admin_banks"))
 
         return render_template("admin_dashboard.html", view="bank_form", bank=None)
 
     @app.route("/admin/banks/<int:bank_id>/edit", methods=["GET", "POST"])
-    @login_required
+    @super_admin_required
     def admin_bank_edit(bank_id):
         bank = Bank.query.get_or_404(bank_id)
 
@@ -746,59 +1099,271 @@ def create_app(env_name=None):
                     bank.logo_filename = saved
 
             db.session.commit()
+            log_activity("bank.update", bank.bank_name)
             flash("Payment account updated.", "success")
             return redirect(url_for("admin_banks"))
 
         return render_template("admin_dashboard.html", view="bank_form", bank=bank)
 
     @app.route("/admin/banks/<int:bank_id>/delete", methods=["POST"])
-    @login_required
+    @super_admin_required
     def admin_bank_delete(bank_id):
         bank = Bank.query.get_or_404(bank_id)
+        log_activity("bank.delete", bank.bank_name)
         db.session.delete(bank)
         db.session.commit()
         flash("Payment account removed.", "success")
         return redirect(url_for("admin_banks"))
 
+    # --- Delivery Zones ---
+    @app.route("/admin/delivery-zones")
+    @super_admin_required
+    def admin_delivery_zones():
+        zones = DeliveryZone.query.order_by(DeliveryZone.city_name).all()
+        return render_template("admin_dashboard.html", view="delivery_zones", zones=zones)
+
+    @app.route("/admin/delivery-zones/save", methods=["POST"])
+    @super_admin_required
+    def admin_delivery_zone_save():
+        city_name = request.form.get("city_name", "").strip()
+        try:
+            fee = Decimal(request.form.get("fee", "0"))
+        except InvalidOperation:
+            flash("Invalid fee amount.", "error")
+            return redirect(url_for("admin_delivery_zones"))
+
+        if not city_name:
+            flash("City name is required.", "error")
+            return redirect(url_for("admin_delivery_zones"))
+
+        zone = DeliveryZone.query.filter_by(city_name=city_name).first()
+        if not zone:
+            zone = DeliveryZone(city_name=city_name)
+            db.session.add(zone)
+        zone.fee = fee
+        zone.is_active = True
+        db.session.commit()
+        flash(f"Delivery fee for {city_name} saved.", "success")
+        return redirect(url_for("admin_delivery_zones"))
+
+    @app.route("/admin/delivery-zones/<int:zone_id>/delete", methods=["POST"])
+    @super_admin_required
+    def admin_delivery_zone_delete(zone_id):
+        zone = DeliveryZone.query.get_or_404(zone_id)
+        db.session.delete(zone)
+        db.session.commit()
+        flash("Delivery zone removed.", "success")
+        return redirect(url_for("admin_delivery_zones"))
+
+    # --- Coupons ---
+    @app.route("/admin/coupons")
+    @super_admin_required
+    def admin_coupons():
+        coupons = Coupon.query.order_by(Coupon.created_at.desc()).all()
+        return render_template("admin_dashboard.html", view="coupons", coupons=coupons)
+
+    @app.route("/admin/coupons/new", methods=["POST"])
+    @super_admin_required
+    def admin_coupon_new():
+        code = request.form.get("code", "").strip().upper()
+        discount_type = request.form.get("discount_type", Coupon.TYPE_PERCENT)
+        usage_limit = request.form.get("usage_limit", type=int)
+        expires_raw = request.form.get("expires_at", "").strip()
+
+        try:
+            discount_value = Decimal(request.form.get("discount_value", "0"))
+        except InvalidOperation:
+            flash("Invalid discount value.", "error")
+            return redirect(url_for("admin_coupons"))
+
+        if not code:
+            flash("Coupon code is required.", "error")
+            return redirect(url_for("admin_coupons"))
+
+        expires_at = None
+        if expires_raw:
+            try:
+                expires_at = datetime.strptime(expires_raw, "%Y-%m-%d")
+            except ValueError:
+                pass
+
+        coupon = Coupon(
+            code=code, discount_type=discount_type, discount_value=discount_value,
+            usage_limit=usage_limit, expires_at=expires_at, is_active=True,
+        )
+        db.session.add(coupon)
+        db.session.commit()
+        log_activity("coupon.create", code)
+        flash("Coupon created.", "success")
+        return redirect(url_for("admin_coupons"))
+
+    @app.route("/admin/coupons/<int:coupon_id>/toggle", methods=["POST"])
+    @super_admin_required
+    def admin_coupon_toggle(coupon_id):
+        coupon = Coupon.query.get_or_404(coupon_id)
+        coupon.is_active = not coupon.is_active
+        db.session.commit()
+        return redirect(url_for("admin_coupons"))
+
+    @app.route("/admin/coupons/<int:coupon_id>/delete", methods=["POST"])
+    @super_admin_required
+    def admin_coupon_delete(coupon_id):
+        coupon = Coupon.query.get_or_404(coupon_id)
+        db.session.delete(coupon)
+        db.session.commit()
+        flash("Coupon deleted.", "success")
+        return redirect(url_for("admin_coupons"))
+
+    # --- Loyalty Accounts ---
+    @app.route("/admin/loyalty")
+    @login_required
+    def admin_loyalty():
+        accounts = LoyaltyAccount.query.order_by(LoyaltyAccount.points.desc()).limit(100).all()
+        return render_template("admin_dashboard.html", view="loyalty", accounts=accounts)
+
+    # --- Banners ---
+    @app.route("/admin/banners")
+    @super_admin_required
+    def admin_banners():
+        banners = Banner.query.order_by(Banner.created_at.desc()).all()
+        return render_template("admin_dashboard.html", view="banners", banners=banners)
+
+    @app.route("/admin/banners/new", methods=["GET", "POST"])
+    @super_admin_required
+    def admin_banner_new():
+        if request.method == "POST":
+            title = request.form.get("title", "").strip()
+            if not title:
+                flash("Banner title is required.", "error")
+                return render_template("admin_dashboard.html", view="banner_form", banner=None)
+
+            image_filename = None
+            image_file = request.files.get("image")
+            if image_file and image_file.filename:
+                image_filename = save_uploaded_file(image_file, subfolder="banners")
+
+            is_active = bool(request.form.get("is_active"))
+            if is_active:
+                Banner.query.update({Banner.is_active: False})  # only one active banner at a time
+
+            banner = Banner(
+                title=title,
+                subtitle=request.form.get("subtitle", "").strip(),
+                cta_text=request.form.get("cta_text", "").strip(),
+                cta_link=request.form.get("cta_link", "").strip(),
+                image_filename=image_filename,
+                is_active=is_active,
+            )
+            db.session.add(banner)
+            db.session.commit()
+            log_activity("banner.create", title)
+            flash("Banner saved.", "success")
+            return redirect(url_for("admin_banners"))
+
+        return render_template("admin_dashboard.html", view="banner_form", banner=None)
+
+    @app.route("/admin/banners/<int:banner_id>/activate", methods=["POST"])
+    @super_admin_required
+    def admin_banner_activate(banner_id):
+        Banner.query.update({Banner.is_active: False})
+        banner = Banner.query.get_or_404(banner_id)
+        banner.is_active = True
+        db.session.commit()
+        flash(f"'{banner.title}' is now live on the homepage.", "success")
+        return redirect(url_for("admin_banners"))
+
+    @app.route("/admin/banners/<int:banner_id>/delete", methods=["POST"])
+    @super_admin_required
+    def admin_banner_delete(banner_id):
+        banner = Banner.query.get_or_404(banner_id)
+        db.session.delete(banner)
+        db.session.commit()
+        flash("Banner deleted.", "success")
+        return redirect(url_for("admin_banners"))
+
+    # --- Customer Data Export (privacy / compliance) ---
+    @app.route("/my-data", methods=["GET", "POST"])
+    def customer_data_export():
+        """Lets a customer look up and export their own order history by phone + one order code
+        (a lightweight, no-login identity check appropriate for a guest-checkout store)."""
+        data = None
+        if request.method == "POST":
+            phone = request.form.get("phone", "").strip()
+            order_code = request.form.get("order_code", "").strip().upper()
+            verifying_order = Order.query.filter_by(customer_phone=phone, order_code=order_code).first()
+            if verifying_order:
+                orders = Order.query.filter_by(customer_phone=phone).order_by(Order.created_at.desc()).all()
+                data = {
+                    "phone": phone,
+                    "orders": [
+                        {
+                            "order_code": o.order_code, "status": o.status,
+                            "total_amount": float(o.total_amount), "created_at": o.created_at.isoformat(),
+                            "items": [{"product": i.product_name, "qty": i.quantity} for i in o.items],
+                        }
+                        for o in orders
+                    ],
+                }
+            else:
+                flash("We couldn't verify your identity with that phone number and order code.", "error")
+        return render_template("my_data.html", data=data)
+
+    @app.route("/my-data/export.json", methods=["POST"])
+    def customer_data_export_json():
+        phone = request.form.get("phone", "").strip()
+        order_code = request.form.get("order_code", "").strip().upper()
+        verifying_order = Order.query.filter_by(customer_phone=phone, order_code=order_code).first()
+        if not verifying_order:
+            abort(403)
+
+        orders = Order.query.filter_by(customer_phone=phone).order_by(Order.created_at.desc()).all()
+        payload = {
+            "phone": phone,
+            "exported_at": datetime.utcnow().isoformat(),
+            "orders": [
+                {
+                    "order_code": o.order_code, "status": o.status,
+                    "total_amount": float(o.total_amount), "created_at": o.created_at.isoformat(),
+                    "delivery_address": o.delivery_address, "city": o.city,
+                    "items": [{"product": i.product_name, "qty": i.quantity, "unit_price": float(i.unit_price)} for i in o.items],
+                }
+                for o in orders
+            ],
+        }
+        import json
+        return Response(
+            json.dumps(payload, indent=2), mimetype="application/json",
+            headers={"Content-Disposition": f"attachment; filename=danu_perfume_data_{phone}.json"},
+        )
+
     # =========================================================
-    # CLI / Startup: create tables and seed a default admin
+    # CLI / Startup: create tables and seed default data
     # =========================================================
     @app.cli.command("init-db")
     def init_db_command():
-        """Flask CLI command: `flask init-db` — creates tables and a default admin user."""
+        """Flask CLI command: `flask init-db` — creates tables and seeds default data."""
         _init_db(app)
         print("Database initialized.")
-
-    def _ensure_schema(flask_app):
-        """Add missing columns for older SQLite databases so the admin dashboard continues to work."""
-        with flask_app.app_context():
-            if db.engine.url.get_backend_name() != "sqlite":
-                return
-
-            inspector = inspect(db.engine)
-            for model in (User, Category, Product, Order, OrderItem, Bank):
-                table_name = model.__tablename__
-                if table_name not in inspector.get_table_names():
-                    continue
-
-                existing_columns = {column["name"] for column in inspector.get_columns(table_name)}
-                for column in model.__table__.columns:
-                    if column.name in existing_columns:
-                        continue
-
-                    column_type = column.type.compile(dialect=db.engine.dialect)
-                    db.session.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column.name} {column_type}"))
-
-            db.session.commit()
 
     def _init_db(flask_app):
         with flask_app.app_context():
             db.create_all()
-            _ensure_schema(flask_app)
 
-            for username, full_name, password in flask_app.config["ADMIN_ACCOUNTS"]:
-                if not User.query.filter_by(email=username).first():
-                    admin = User(full_name=full_name, email=username, is_admin=True)
+            for acct in flask_app.config["ADMIN_ACCOUNTS"]:
+                # Support tuples of (username, full_name, password) and (username, full_name, password, role)
+                try:
+                    if len(acct) == 4:
+                        username, full_name, password, role = acct
+                    elif len(acct) == 3:
+                        username, full_name, password = acct
+                        role = User.ROLE_SUPER_ADMIN
+                    else:
+                        continue
+                except Exception:
+                    continue
+
+                if not User.query.filter_by(username=username).first():
+                    admin = User(full_name=full_name, username=username, role=role, is_admin=True)
                     admin.set_password(password)
                     db.session.add(admin)
 
@@ -818,21 +1383,115 @@ def create_app(env_name=None):
                 ]
                 db.session.add_all(default_banks)
 
+            if DeliveryZone.query.count() == 0:
+                default_zones = [
+                    DeliveryZone(city_name="Addis Ababa", fee=Decimal("100")),
+                    DeliveryZone(city_name="Adama", fee=Decimal("200")),
+                    DeliveryZone(city_name="Bahir Dar", fee=Decimal("250")),
+                ]
+                db.session.add_all(default_zones)
+
             db.session.commit()
 
-    # Auto-initialize on first request in case `flask init-db` wasn't run manually
     with app.app_context():
         try:
+            # Ensure base tables exist (will not modify existing columns)
             db.create_all()
-            _ensure_schema(app)
+
+            # SQLite compatibility: add missing columns that older DBs may lack.
+            def _ensure_schema_compat():
+                engine = db.engine
+
+                def has_column(table, column):
+                    try:
+                        rows = engine.execute(text(f"PRAGMA table_info('{table}')")).fetchall()
+                    except Exception:
+                        return False
+                    return any(r[1] == column for r in rows)
+
+                # users.username (older DBs may not have this column)
+                if not has_column('users', 'username'):
+                    try:
+                        with engine.begin() as conn:
+                            conn.execute(text("ALTER TABLE users ADD COLUMN username VARCHAR(60)"))
+                    except Exception:
+                        pass
+
+                # users.role (older DBs may not have role column)
+                if not has_column('users', 'role'):
+                    try:
+                        with engine.begin() as conn:
+                            conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(30)"))
+                    except Exception:
+                        pass
+                else:
+                    # Ensure existing users have a role set
+                    try:
+                        with engine.begin() as conn:
+                            conn.execute(text(f"UPDATE users SET role = :role WHERE role IS NULL OR role = ''"), {'role': User.ROLE_SUPER_ADMIN})
+                    except Exception:
+                        pass
+                    # Also ensure via ORM update in case the SQL above didn't take effect
+                    try:
+                        db.session.query(User).filter((User.role == None) | (User.role == "")).update({"role": User.ROLE_SUPER_ADMIN}, synchronize_session=False)
+                        db.session.commit()
+                    except Exception:
+                        db.session.rollback()
+
+                # products.sku (some seed DBs may be from an earlier schema)
+                if not has_column('products', 'sku'):
+                    try:
+                        with engine.begin() as conn:
+                            conn.execute(text("ALTER TABLE products ADD COLUMN sku VARCHAR(40)"))
+                    except Exception:
+                        pass
+
+                # Ensure common `orders` columns exist (avoid admin dashboard query failures)
+                orders_columns = {
+                    'rider_name': "VARCHAR(100)",
+                    'rider_phone': "VARCHAR(30)",
+                    'notes': "TEXT",
+                    'is_gift': "BOOLEAN",
+                    'gift_message': "VARCHAR(300)",
+                    'payment_method': "VARCHAR(30)",
+                    'bank_id': "INTEGER",
+                    'payment_screenshot': "VARCHAR(255)",
+                    'coupon_code': "VARCHAR(40)",
+                    'discount_amount': "NUMERIC",
+                    'subtotal_amount': "NUMERIC",
+                    'delivery_fee': "NUMERIC",
+                    'total_amount': "NUMERIC",
+                    'points_earned': "INTEGER",
+                    'risk_level': "VARCHAR(20)",
+                    'risk_reasons': "VARCHAR(255)",
+                    'status': "VARCHAR(30)",
+                    'created_at': "DATETIME",
+                    'updated_at': "DATETIME",
+                }
+                for col, coltype in orders_columns.items():
+                    if not has_column('orders', col):
+                        try:
+                            with engine.begin() as conn:
+                                conn.execute(text(f"ALTER TABLE orders ADD COLUMN {col} {coltype}"))
+                        except Exception:
+                            pass
+
+                # Populate username for existing users if missing
+                try:
+                    with engine.begin() as conn:
+                        conn.execute(text("UPDATE users SET username = full_name WHERE username IS NULL OR username = ''"))
+                except Exception:
+                    pass
+
+            _ensure_schema_compat()
+
             missing_admin = any(
-                not User.query.filter_by(email=u).first()
-                for u, _, _ in app.config["ADMIN_ACCOUNTS"]
+                not User.query.filter_by(username=u).first()
+                for u, _, _, _ in app.config["ADMIN_ACCOUNTS"]
             )
             if missing_admin or Bank.query.count() == 0:
                 _init_db(app)
         except Exception as exc:  # noqa: BLE001
-            # DB might not be reachable yet at import time (e.g. during static analysis)
             print(f"[Danu Perfume] Startup DB check skipped: {exc}")
 
     # Error handlers
