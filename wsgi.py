@@ -19,7 +19,7 @@ print(f"[WSGI] Current working directory: {os.getcwd()}", flush=True)
 
 # Import and configure create_app
 from tests.app import create_app as _create_app
-from models import User, Customer, Product, Order
+from models import db, User, Customer, Product, Order
 
 # Create the Flask app using the factory function
 app = _create_app(env_name=os.environ.get("FLASK_ENV", "production"))

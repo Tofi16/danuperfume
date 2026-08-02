@@ -18,7 +18,12 @@
     <!-- ============ ADMIN SIDEBAR ============ -->
     <aside class="md:w-56 shrink-0 md:!block" :class="sidebarOpen ? 'block' : 'hidden'">
       <div class="glass rounded-2xl p-5 md:sticky md:top-24">
-        <p class="text-xs uppercase tracking-widest text-danu-cream/40 mb-4">{{ current_user.full_name }} <span class="text-danu-gold/60">({{ current_user.role.replace('_',' ')|title }})</span></p>
+        <p class="text-xs uppercase tracking-widest text-danu-cream/40 mb-4">
+          {{ current_user.full_name or 'Admin' }}
+          {% if current_user.role %}
+          <span class="text-danu-gold/60">({{ current_user.role.replace('_',' ')|title }})</span>
+          {% endif %}
+        </p>
         <nav class="space-y-1 text-sm">
           <a href="{{ url_for('admin_dashboard') }}"
              class="block px-3 py-2 rounded-lg {% if view == 'overview' %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
@@ -91,22 +96,35 @@
 
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         <div class="glass-card rounded-2xl p-5">
-          <p class="text-xs text-danu-cream/50 uppercase tracking-widest mb-1">{{ t('admin.dashboard.total_orders') }}</p>
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-xs text-danu-cream/50 uppercase tracking-widest">{{ t('admin.dashboard.total_orders') }}</p>
+            <span class="text-danu-gold/60">📦</span>
+          </div>
           <p class="font-serif text-3xl text-danu-goldlight">{{ total_orders }}</p>
         </div>
         <div class="glass-card rounded-2xl p-5">
-          <p class="text-xs text-danu-cream/50 uppercase tracking-widest mb-1">{{ t('admin.dashboard.total_sales') }}</p>
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-xs text-danu-cream/50 uppercase tracking-widest">{{ t('admin.dashboard.total_sales') }}</p>
+            <span class="text-danu-gold/60">💰</span>
+          </div>
           <p class="font-serif text-3xl text-danu-goldlight">{{ currency }} {{ "%.2f"|format(total_sales) }}</p>
         </div>
         <div class="glass-card rounded-2xl p-5">
-          <p class="text-xs text-danu-cream/50 uppercase tracking-widest mb-1">{{ t('admin.dashboard.pending_orders') }}</p>
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-xs text-danu-cream/50 uppercase tracking-widest">{{ t('admin.dashboard.pending_orders') }}</p>
+            <span class="text-danu-gold/60">⏳</span>
+          </div>
           <p class="font-serif text-3xl text-danu-goldlight">{{ pending_orders }}</p>
         </div>
         <div class="glass-card rounded-2xl p-5">
-          <p class="text-xs text-danu-cream/50 uppercase tracking-widest mb-1">{{ t('admin.dashboard.total_products') }}</p>
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-xs text-danu-cream/50 uppercase tracking-widest">{{ t('admin.dashboard.total_products') }}</p>
+            <span class="text-danu-gold/60">🧴</span>
+          </div>
           <p class="font-serif text-3xl text-danu-goldlight">{{ total_products }}</p>
         </div>
       </div>
+
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="glass rounded-2xl p-6">

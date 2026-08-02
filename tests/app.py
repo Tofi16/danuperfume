@@ -223,11 +223,18 @@ def create_app(env_name=None):
             db.session.rollback()
 
     def admin_required(view_func):
-        """Requires a logged-in STAFF account. A logged-in customer hitting an
-        admin URL is bounced to the admin login screen, never let through."""
+        """Requires a logged-in STAFF account. Redirects unauthenticated users
+        to the admin login page (`/admin/login`) and prevents customers from
+        accessing admin URLs by redirecting them to the admin login as well.
+        This avoids relying on the global `login_manager.login_view` which is
+        set to the customer login page.
+        """
         @wraps(view_func)
-        @login_required
         def wrapper(*args, **kwargs):
+            # If the user is not authenticated, send them to the admin login
+            if not current_user.is_authenticated:
+                return redirect(url_for("admin_login"))
+            # If authenticated but not an admin user, bounce to admin login
             if not isinstance(current_user, User):
                 flash("Please log in with an admin account to access that page.", "error")
                 return redirect(url_for("admin_login"))
@@ -1119,6 +1126,19 @@ def create_app(env_name=None):
         return Response(header + example, mimetype="text/csv", headers={
             "Content-Disposition": "attachment; filename=danu_product_import_template.csv"
         })
+
+    # --- Global error handler (development) ---
+    # When DEBUG is enabled, return the full traceback in the response and
+    # also print it to stderr so the developer can see the exact failure.
+    if app.config.get("DEBUG"):
+        import traceback, sys
+
+        @app.errorhandler(Exception)
+        def _debug_exception_handler(err):
+            tb = traceback.format_exc()
+            print(tb, file=sys.stderr, flush=True)
+            # Return plain-text traceback in <pre> for easier copy/paste
+            return ("<h2>Internal Server Error</h2>\n<pre style='white-space:pre-wrap;'>" + tb + "</pre>"), 500
 
     # --- Reviews Moderation ---
     @app.route("/admin/reviews")

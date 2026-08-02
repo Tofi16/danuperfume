@@ -9,6 +9,14 @@
   --danu-black: #0b0b0d;
   --danu-charcoal: #17161a;
   --danu-cream: #f7f3ec;
+
+  /* Elevation tokens — consistent shadow depth across cards, modals, nav */
+  --shadow-sm: 0 4px 14px -4px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 12px 32px -8px rgba(0, 0, 0, 0.45);
+  --shadow-gold: 0 12px 32px -10px rgba(201, 162, 75, 0.35);
+
+  /* Motion tokens — one shared easing curve for a cohesive, premium feel */
+  --ease-luxury: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 html {
@@ -26,12 +34,65 @@ body {
   font-family: 'Playfair Display', 'Noto Serif Ethiopic', serif;
 }
 
+/* ---------------- Page-load transition ---------------- */
+main {
+  animation: pageFadeIn 0.6s var(--ease-luxury) both;
+}
+@keyframes pageFadeIn {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------------- Animated logo (D&C monogram) ---------------- */
+.logo-mark {
+  transition: transform 0.5s var(--ease-luxury);
+}
+.logo-mark:hover {
+  transform: rotate(8deg) scale(1.06);
+}
+.logo-mark circle {
+  stroke-dasharray: 120;
+  stroke-dashoffset: 120;
+  animation: logoRing 1.6s var(--ease-luxury) forwards;
+}
+.logo-mark text {
+  opacity: 0;
+  animation: logoTextIn 0.8s ease-out 0.9s forwards;
+}
+@keyframes logoRing {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes logoTextIn {
+  to { opacity: 1; }
+}
+
+/* ---------------- Section divider (replaces heavy blank spacing) ---------------- */
+.section-divider {
+  position: relative;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201, 162, 75, 0.35), transparent);
+  margin: 0 auto;
+  max-width: 200px;
+}
+.section-divider::before {
+  content: '✦';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--danu-black);
+  color: var(--danu-gold);
+  font-size: 0.75rem;
+  padding: 0 12px;
+}
+
 /* ---------------- Glassmorphism ---------------- */
 .glass {
   background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
   border: 1px solid rgba(201, 162, 75, 0.18);
+  box-shadow: var(--shadow-sm);
 }
 
 .glass-nav {
@@ -39,6 +100,11 @@ body {
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid rgba(201, 162, 75, 0.15);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+.glass-nav.scrolled {
+  background: rgba(11, 11, 13, 0.85);
+  box-shadow: var(--shadow-sm);
 }
 
 .glass-card {
@@ -46,13 +112,13 @@ body {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(201, 162, 75, 0.12);
-  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.45s ease, box-shadow 0.45s ease;
+  transition: transform 0.45s var(--ease-luxury), border-color 0.45s ease, box-shadow 0.45s ease;
 }
 
 .glass-card:hover {
   transform: translateY(-6px);
   border-color: rgba(201, 162, 75, 0.55);
-  box-shadow: 0 20px 45px -15px rgba(201, 162, 75, 0.25);
+  box-shadow: var(--shadow-gold);
 }
 
 /* ---------------- Gold Gradient Text / Buttons ---------------- */
@@ -61,6 +127,12 @@ body {
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  background-size: 200% auto;
+  animation: goldShimmer 6s ease-in-out infinite;
+}
+@keyframes goldShimmer {
+  0%, 100% { background-position: 0% center; }
+  50% { background-position: 100% center; }
 }
 
 .btn-luxury {
@@ -71,7 +143,20 @@ body {
   color: #0b0b0d;
   font-weight: 600;
   letter-spacing: 0.05em;
-  transition: background-position 0.6s ease, transform 0.3s ease, box-shadow 0.3s ease;
+  transition: background-position 0.6s ease, transform 0.3s var(--ease-luxury), box-shadow 0.3s ease;
+}
+
+.btn-luxury::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -60%;
+  width: 40%; height: 100%;
+  background: linear-gradient(120deg, transparent, rgba(255,255,255,0.45), transparent);
+  transform: skewX(-20deg);
+  transition: left 0.6s ease;
+}
+.btn-luxury:hover::after {
+  left: 130%;
 }
 
 .btn-luxury:hover {
@@ -79,16 +164,20 @@ body {
   transform: translateY(-2px);
   box-shadow: 0 10px 25px -8px rgba(201, 162, 75, 0.55);
 }
+.btn-luxury:active {
+  transform: translateY(0) scale(0.98);
+}
 
 .btn-outline-luxury {
   border: 1px solid rgba(201, 162, 75, 0.5);
   color: var(--danu-gold-light);
-  transition: all 0.35s ease;
+  transition: all 0.35s var(--ease-luxury);
 }
 
 .btn-outline-luxury:hover {
   background: rgba(201, 162, 75, 0.1);
   border-color: var(--danu-gold);
+  transform: translateY(-1px);
 }
 
 /* ---------------- Hero background animation ---------------- */
@@ -190,7 +279,39 @@ body {
   100% { background-position: 0 50%; }
 }
 
-/* ---------------- Admin table row hover ---------------- */
+/* ---------------- Input focus glow ---------------- */
+input:focus, textarea:focus, select:focus {
+  box-shadow: 0 0 0 3px rgba(201, 162, 75, 0.12);
+}
+
+/* ---------------- Animated nav link underline ---------------- */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: '';
+  position: absolute;
+  left: 0; bottom: -4px;
+  width: 0; height: 1px;
+  background: var(--danu-gold);
+  transition: width 0.35s var(--ease-luxury);
+}
+.nav-link:hover::after {
+  width: 100%;
+}
+
+/* ---------------- Premium loading spinner ---------------- */
+.spinner-luxury {
+  width: 22px; height: 22px;
+  border: 2px solid rgba(201, 162, 75, 0.2);
+  border-top-color: var(--danu-gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------------- Step wizard connectors (checkout) ---------------- */
+.step-active { box-shadow: 0 0 0 4px rgba(201, 162, 75, 0.15); }
 .admin-row:hover {
   background: rgba(201, 162, 75, 0.06);
 }
