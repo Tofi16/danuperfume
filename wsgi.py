@@ -13,6 +13,10 @@ from pathlib import Path
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
 
+print(f"[WSGI] Project root determined as: {project_root}", flush=True)
+print(f"[WSGI] __file__ is: {__file__}", flush=True)
+print(f"[WSGI] Current working directory: {os.getcwd()}", flush=True)
+
 # Import and configure create_app
 from tests.app import create_app as _create_app
 from models import User, Customer, Product, Order
@@ -22,9 +26,21 @@ app = _create_app(env_name=os.environ.get("FLASK_ENV", "production"))
 
 # FIX: Override template and static folders to use project root (not tests/ directory)
 # This is necessary because Flask(__name__) in tests/app.py sets root_path relative to tests/
-app.template_folder = os.path.join(project_root, 'templates')
-app.static_folder = os.path.join(project_root, 'static')
+template_folder = os.path.join(project_root, 'templates')
+static_folder = os.path.join(project_root, 'static')
+
+print(f"[WSGI] Setting template_folder to: {template_folder}", flush=True)
+print(f"[WSGI] Setting static_folder to: {static_folder}", flush=True)
+print(f"[WSGI] Template folder exists: {os.path.isdir(template_folder)}", flush=True)
+
+if os.path.isdir(template_folder):
+    print(f"[WSGI] Templates in folder: {os.listdir(template_folder)}", flush=True)
+
+app.template_folder = template_folder
+app.static_folder = static_folder
 app.static_url_path = '/static'
+
+print(f"[WSGI] App is configured. Flask root_path: {app.root_path}", flush=True)
 
 # Expose create_app for factory pattern support
 create_app = _create_app
