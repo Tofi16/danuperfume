@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: danu_perfume_db
+    environment:
+      POSTGRES_DB: danu_perfume
+      POSTGRES_USER: danu
+      POSTGRES_PASSWORD: danu_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U danu -d danu_perfume"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    container_name: danu_perfume_web
+    command: python -m flask run --host=0.0.0.0
+    ports:
+      - "5000:5000"
+    environment:
+      FLASK_ENV: development
+      FLASK_APP: tests/app.py
+      DATABASE_URL: postgresql://danu:danu_password@postgres:5432/danu_perfume
+      SECRET_KEY: dev-secret-key-change-in-production
+      UPLOAD_FOLDER: static/uploads
+      MAX_UPLOAD_MB: 5
+    volumes:
+      - .:/app
+      - ./static/uploads:/app/static/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres_data:
