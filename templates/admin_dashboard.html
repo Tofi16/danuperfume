@@ -3,14 +3,22 @@
 {% block title %}{{ t('admin.dashboard.title') }} — Danu Perfume{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-5 sm:px-8 py-10">
+<div class="max-w-7xl mx-auto px-5 sm:px-8 py-6 sm:py-10" x-data="{ sidebarOpen: false }">
 
-  <div class="flex flex-col md:flex-row gap-8">
+  <!-- Mobile sidebar toggle -->
+  <button @click="sidebarOpen = !sidebarOpen" class="md:hidden w-full glass rounded-xl px-4 py-3 flex items-center justify-between mb-4">
+    <span class="text-sm text-danu-goldlight">Admin Menu</span>
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-danu-gold" :class="sidebarOpen && 'rotate-180'" style="transition:transform .3s" viewBox="0 0 20 20" fill="currentColor">
+      <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.19l3.71-3.96a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+    </svg>
+  </button>
+
+  <div class="flex flex-col md:flex-row gap-6 md:gap-8">
 
     <!-- ============ ADMIN SIDEBAR ============ -->
-    <aside class="md:w-56 shrink-0">
-      <div class="glass rounded-2xl p-5 sticky top-24">
-        <p class="text-xs uppercase tracking-widest text-danu-cream/40 mb-4">{{ current_user.full_name }} <span class="text-danu-gold/60">({{ (current_user.role or 'super_admin')|replace('_',' ')|title }})</span></p>
+    <aside class="md:w-56 shrink-0 md:!block" :class="sidebarOpen ? 'block' : 'hidden'">
+      <div class="glass rounded-2xl p-5 md:sticky md:top-24">
+        <p class="text-xs uppercase tracking-widest text-danu-cream/40 mb-4">{{ current_user.full_name }} <span class="text-danu-gold/60">({{ current_user.role.replace('_',' ')|title }})</span></p>
         <nav class="space-y-1 text-sm">
           <a href="{{ url_for('admin_dashboard') }}"
              class="block px-3 py-2 rounded-lg {% if view == 'overview' %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
@@ -49,6 +57,10 @@
           <a href="{{ url_for('admin_delivery_zones') }}"
              class="block px-3 py-2 rounded-lg {% if view == 'delivery_zones' %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
             Delivery Zones
+          </a>
+          <a href="{{ url_for('admin_post_offices') }}"
+             class="block px-3 py-2 rounded-lg {% if view in ['post_offices', 'post_offices_import'] %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
+            Post Offices
           </a>
           <a href="{{ url_for('admin_coupons') }}"
              class="block px-3 py-2 rounded-lg {% if view == 'coupons' %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
@@ -91,9 +103,8 @@
           <p class="font-serif text-3xl text-danu-goldlight">{{ pending_orders }}</p>
         </div>
         <div class="glass-card rounded-2xl p-5">
-          <p class="text-xs text-danu-cream/50 uppercase tracking-widest mb-1">Payment Methods</p>
-          <p class="font-serif text-3xl text-danu-goldlight">{{ active_payment_accounts }}</p>
-          <a href="{{ url_for('admin_banks') }}" class="text-xs text-danu-gold hover:underline mt-2 inline-block">Manage accounts</a>
+          <p class="text-xs text-danu-cream/50 uppercase tracking-widest mb-1">{{ t('admin.dashboard.total_products') }}</p>
+          <p class="font-serif text-3xl text-danu-goldlight">{{ total_products }}</p>
         </div>
       </div>
 
@@ -652,6 +663,78 @@
             {% endfor %}
           </tbody>
         </table>
+      </div>
+
+      {% elif view == 'post_offices' %}
+      <!-- ================= POST OFFICES ================= -->
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="font-serif text-3xl text-gold-gradient">Post Offices</h1>
+          <p class="text-xs text-danu-cream/40 mt-1">{{ total_count }} branches total</p>
+        </div>
+        <a href="{{ url_for('admin_post_offices_import') }}" class="btn-outline-luxury border rounded-full px-5 py-2.5 text-sm uppercase tracking-widest">
+          Import CSV
+        </a>
+      </div>
+
+      <form method="GET" class="glass rounded-2xl p-4 mb-6 flex gap-3">
+        <input type="text" name="query" value="{{ query }}" placeholder="Search by name, city, or region"
+               class="flex-1 bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
+        <button type="submit" class="btn-luxury rounded-full px-6 py-2.5 text-sm uppercase tracking-widest">Search</button>
+      </form>
+
+      <form method="POST" action="{{ url_for('admin_post_office_new') }}" class="glass rounded-2xl p-6 grid grid-cols-1 sm:grid-cols-5 gap-3 mb-8">
+        <input type="text" name="name" placeholder="Office name" required class="bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
+        <input type="text" name="city" placeholder="City" required class="bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
+        <input type="text" name="region" placeholder="Region" class="bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
+        <input type="text" name="postal_code" placeholder="Postal code" class="bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
+        <button type="submit" class="btn-luxury rounded-full px-6 py-2.5 text-sm uppercase tracking-widest">Add Branch</button>
+        <input type="text" name="address" placeholder="Full address (optional)" class="sm:col-span-5 bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
+      </form>
+
+      <div class="glass rounded-2xl overflow-hidden overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-left text-xs uppercase tracking-widest text-danu-cream/50 border-b border-danu-gold/15">
+            <tr><th class="px-5 py-4">Name</th><th class="px-5 py-4">City</th><th class="px-5 py-4">Region</th><th class="px-5 py-4">Postal Code</th><th class="px-5 py-4"></th></tr>
+          </thead>
+          <tbody>
+            {% for o in offices %}
+            <tr class="admin-row border-b border-danu-gold/5">
+              <td class="px-5 py-3">{{ o.name }}</td>
+              <td class="px-5 py-3 text-danu-cream/70">{{ o.city }}</td>
+              <td class="px-5 py-3 text-danu-cream/60">{{ o.region or '—' }}</td>
+              <td class="px-5 py-3 font-mono text-xs">{{ o.postal_code or '—' }}</td>
+              <td class="px-5 py-3 text-right">
+                <form method="POST" action="{{ url_for('admin_post_office_delete', office_id=o.id) }}" onsubmit="return confirm('Remove this branch?');">
+                  <button class="text-xs text-red-400 hover:underline">{{ t('admin.products.delete') }}</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="px-5 py-8 text-center text-danu-cream/40">No post offices found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if offices|length >= 200 %}
+        <p class="text-xs text-danu-cream/40 px-5 py-3">Showing first 200 results — use search to narrow down.</p>
+        {% endif %}
+      </div>
+
+      {% elif view == 'post_offices_import' %}
+      <!-- ================= POST OFFICE BULK CSV IMPORT ================= -->
+      <h1 class="font-serif text-3xl text-gold-gradient mb-8">Bulk Import Post Offices (CSV)</h1>
+      <div class="glass rounded-2xl p-6 sm:p-8 max-w-xl space-y-5">
+        <p class="text-sm text-danu-cream/60">
+          Upload a CSV with columns: <code class="text-danu-gold">name, city, region, postal_code, address</code>.
+          This is built to handle large official branch lists (1000+ rows) in one upload — rows commit in
+          batches of 200 automatically.
+        </p>
+        <a href="{{ url_for('admin_post_offices_import_template') }}" class="text-xs text-danu-gold hover:underline">Download CSV template →</a>
+        <form method="POST" enctype="multipart/form-data" class="space-y-4">
+          <input type="file" name="csv_file" accept=".csv" required
+                 class="w-full text-sm text-danu-cream/70 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-danu-gold/15 file:text-danu-goldlight">
+          <button type="submit" class="btn-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest">Import Post Offices</button>
+        </form>
       </div>
 
       {% elif view == 'coupons' %}

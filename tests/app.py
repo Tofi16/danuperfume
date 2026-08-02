@@ -33,31 +33,42 @@ from flask_login import (
     LoginManager, login_user, logout_user, login_required, current_user
 )
 from werkzeug.utils import secure_filename
-from sqlalchemy import func, text
+from sqlalchemy import func, inspect, text
 
 from config import config_by_name
 from models import (
-    db, User, ActivityLog, Category, Product, ProductImage, Review, StockAlert,
-    Bank, DeliveryZone, Coupon, LoyaltyAccount, Banner, Order, OrderItem,
+    db, User, Customer, ActivityLog, Category, Product, ProductImage, Review, StockAlert,
+    Bank, DeliveryZone, Coupon, LoyaltyAccount, Banner, PostOffice, Order, OrderItem,
 )
 from translations import TRANSLATIONS, get_text
 
-ETHIOPIA_POST_OFFICE_OPTIONS = [
-    "Addis Ababa Main Post Office",
-    "Bole Post Office",
-    "Arat Kilo Post Office",
-    "Piassa Post Office",
-    "Megenagna Post Office",
-    "Mekelle Post Office",
-    "Adama Post Office",
-    "Hawassa Post Office",
-    "Bahir Dar Post Office",
-    "Dire Dawa Post Office",
-    "Jimma Post Office",
-    "Gondar Post Office",
-    "Dessie Post Office",
-    "Debre Berhan Post Office",
-    "Awassa Post Office",
+
+# Seed data only — used to populate the post_offices table on first run so the
+# picker isn't empty out of the box. The real, full branch directory (which can
+# run into the thousands) should be bulk-imported by an admin via CSV at
+# /admin/post-offices/import, since Claude cannot fabricate verified addresses
+# for every official Ethio Post branch.
+SEED_POST_OFFICES = [
+    {"name": "Addis Ababa Main Post Office", "city": "Addis Ababa", "region": "Addis Ababa", "postal_code": "1000", "address": "P.O. Box 1111, Central Addis Ababa"},
+    {"name": "Bole Post Office", "city": "Addis Ababa", "region": "Addis Ababa", "postal_code": "1000", "address": "Bole Sub-city, Addis Ababa"},
+    {"name": "Megenagna Post Office", "city": "Addis Ababa", "region": "Addis Ababa", "postal_code": "1000", "address": "Megenagna, Addis Ababa"},
+    {"name": "Arada Post Office", "city": "Addis Ababa", "region": "Addis Ababa", "postal_code": "1000", "address": "Arada Sub-city, Addis Ababa"},
+    {"name": "Kirkos Post Office", "city": "Addis Ababa", "region": "Addis Ababa", "postal_code": "1000", "address": "Kirkos, Addis Ababa"},
+    {"name": "Lideta Post Office", "city": "Addis Ababa", "region": "Addis Ababa", "postal_code": "1000", "address": "Lideta, Addis Ababa"},
+    {"name": "Dire Dawa Post Office", "city": "Dire Dawa", "region": "Dire Dawa", "postal_code": "3000", "address": "Dire Dawa City"},
+    {"name": "Mekelle Post Office", "city": "Mekelle", "region": "Tigray", "postal_code": "7000", "address": "Mekelle City"},
+    {"name": "Adama Post Office", "city": "Adama", "region": "Oromia", "postal_code": "3020", "address": "Adama City"},
+    {"name": "Hawassa Post Office", "city": "Hawassa", "region": "Sidama", "postal_code": "4500", "address": "Hawassa City"},
+    {"name": "Bahir Dar Post Office", "city": "Bahir Dar", "region": "Amhara", "postal_code": "6000", "address": "Bahir Dar City"},
+    {"name": "Jimma Post Office", "city": "Jimma", "region": "Oromia", "postal_code": "3780", "address": "Jimma City"},
+    {"name": "Gondar Post Office", "city": "Gondar", "region": "Amhara", "postal_code": "6200", "address": "Gondar City"},
+    {"name": "Debre Berhan Post Office", "city": "Debre Berhan", "region": "Amhara", "postal_code": "4450", "address": "Debre Berhan City"},
+    {"name": "Asosa Post Office", "city": "Asosa", "region": "Benishangul-Gumuz", "postal_code": "300", "address": "Asosa City"},
+    {"name": "Jijiga Post Office", "city": "Jijiga", "region": "Somali", "postal_code": "4400", "address": "Jijiga City"},
+    {"name": "Shashemene Post Office", "city": "Shashemene", "region": "Oromia", "postal_code": "2600", "address": "Shashemene City"},
+    {"name": "Harar Post Office", "city": "Harar", "region": "Harari", "postal_code": "3200", "address": "Harar City"},
+    {"name": "Dessie Post Office", "city": "Dessie", "region": "Amhara", "postal_code": "3000", "address": "Dessie City"},
+    {"name": "Nekemte Post Office", "city": "Nekemte", "region": "Oromia", "postal_code": "2500", "address": "Nekemte City"},
 ]
 
 
@@ -68,25 +79,28 @@ def create_app(env_name=None):
     env_name = env_name or os.environ.get("FLASK_ENV", "production")
     app.config.from_object(config_by_name.get(env_name, config_by_name["production"]))
 
-    # Ensure a safe SQLite fallback is present so the app can start
-    # even if a DATABASE_URL/SQLALCHEMY_DATABASE_URI isn't provided.
-    if not app.config.get("SQLALCHEMY_DATABASE_URI") and not app.config.get("SQLALCHEMY_BINDS"):
-        default_sqlite = f"sqlite:///{os.path.join(os.path.abspath(os.path.dirname(__file__)), 'danu_perfume.db')}"
-        # Explicitly assign the fallback to ensure Flask-SQLAlchemy sees it during init
-        app.config["SQLALCHEMY_DATABASE_URI"] = default_sqlite
-
     # --- Initialize extensions ---
     db.init_app(app)
 
     login_manager = LoginManager()
-    login_manager.login_view = "admin_login"
-    login_manager.login_message = "Please log in to access the admin dashboard."
+    login_manager.login_view = "customer_login"
+    login_manager.login_message = "Please log in to continue."
     login_manager.login_message_category = "warning"
     login_manager.init_app(app)
 
     @login_manager.user_loader
-    def load_user(user_id):
-        return db.session.get(User, int(user_id))
+    def load_user(prefixed_id):
+        # IDs are prefixed ("admin-3" / "customer-7") so one login system can
+        # safely serve two different account types without ever confusing them.
+        try:
+            kind, raw_id = prefixed_id.split("-", 1)
+        except ValueError:
+            return None
+        if kind == "admin":
+            return db.session.get(User, int(raw_id))
+        if kind == "customer":
+            return db.session.get(Customer, int(raw_id))
+        return None
 
     # --- Ensure upload folder exists ---
     upload_path = os.path.join(app.root_path, app.config["UPLOAD_FOLDER"])
@@ -197,9 +211,21 @@ def create_app(env_name=None):
         except Exception:  # noqa: BLE001
             db.session.rollback()
 
-    def super_admin_required(view_func):
+    def admin_required(view_func):
+        """Requires a logged-in STAFF account. A logged-in customer hitting an
+        admin URL is bounced to the admin login screen, never let through."""
         @wraps(view_func)
         @login_required
+        def wrapper(*args, **kwargs):
+            if not isinstance(current_user, User):
+                flash("Please log in with an admin account to access that page.", "error")
+                return redirect(url_for("admin_login"))
+            return view_func(*args, **kwargs)
+        return wrapper
+
+    def super_admin_required(view_func):
+        @wraps(view_func)
+        @admin_required
         def wrapper(*args, **kwargs):
             if not current_user.is_super_admin:
                 flash("You don't have permission to access that page.", "error")
@@ -482,6 +508,49 @@ def create_app(env_name=None):
             "new_total": float(subtotal - discount),
         })
 
+    # --- Post Office Directory (database-backed, scales to thousands of branches) ---
+    @app.route("/post-offices")
+    def post_offices():
+        query = request.args.get("query", "").strip()
+        offices_query = PostOffice.query.filter_by(is_active=True)
+        if query:
+            like_term = f"%{query}%"
+            offices_query = offices_query.filter(
+                db.or_(
+                    PostOffice.name.ilike(like_term),
+                    PostOffice.city.ilike(like_term),
+                    PostOffice.region.ilike(like_term),
+                    PostOffice.address.ilike(like_term),
+                    PostOffice.postal_code.ilike(like_term),
+                )
+            )
+        offices = offices_query.order_by(PostOffice.city, PostOffice.name).limit(500).all()
+        total_count = PostOffice.query.filter_by(is_active=True).count()
+        return render_template("post_offices.html", offices=offices, query=query, total_count=total_count)
+
+    @app.route("/api/post-offices")
+    def api_post_offices():
+        """Live search endpoint used by the autocomplete picker at checkout. Returns
+        at most 20 matches — safe to use even with a 1000+ branch directory."""
+        query = request.args.get("query", "").strip()
+        offices_query = PostOffice.query.filter_by(is_active=True)
+        if query:
+            like_term = f"%{query}%"
+            offices_query = offices_query.filter(
+                db.or_(
+                    PostOffice.name.ilike(like_term),
+                    PostOffice.city.ilike(like_term),
+                    PostOffice.region.ilike(like_term),
+                )
+            )
+        offices = offices_query.order_by(PostOffice.city, PostOffice.name).limit(20).all()
+        return jsonify({
+            "results": [
+                {"name": o.name, "city": o.city, "region": o.region, "postal_code": o.postal_code, "address": o.address}
+                for o in offices
+            ]
+        })
+
     # --- Checkout ---
     @app.route("/checkout", methods=["GET", "POST"])
     def checkout():
@@ -503,8 +572,13 @@ def create_app(env_name=None):
 
         banks = Bank.query.filter_by(is_active=True).order_by(Bank.sort_order).all()
         delivery_options = [Order.DELIVERY_STANDARD, Order.DELIVERY_MOTORCYCLE, Order.DELIVERY_PICKUP]
-        proposed_fee = roll_delivery_fee()
-        post_office_options = ETHIOPIA_POST_OFFICE_OPTIONS
+
+        # Roll the delivery fee only once per checkout session — reloading the page,
+        # switching language, or re-rendering after a validation error must NOT
+        # change the quoted price. It's cleared once the order is actually placed.
+        if "checkout_delivery_fee" not in session:
+            session["checkout_delivery_fee"] = str(roll_delivery_fee())
+        proposed_fee = Decimal(session["checkout_delivery_fee"])
 
         if request.method == "POST":
             customer_name = request.form.get("customer_name", "").strip()
@@ -558,7 +632,6 @@ def create_app(env_name=None):
                 return render_template(
                     "checkout.html", line_items=line_items, subtotal=subtotal,
                     banks=banks, delivery_options=delivery_options, proposed_fee=proposed_fee,
-                    post_office_options=post_office_options,
                 )
 
             receipt_filename = save_uploaded_file(receipt_file, subfolder="receipts")
@@ -569,6 +642,7 @@ def create_app(env_name=None):
 
             new_order = Order(
                 order_code=generate_order_code(),
+                customer_id=current_user.id if isinstance(current_user, Customer) else None,
                 customer_name=customer_name,
                 customer_phone=customer_phone,
                 delivery_address=delivery_address,
@@ -592,6 +666,8 @@ def create_app(env_name=None):
                 status=Order.STATUS_PENDING,
             )
             db.session.add(new_order)
+            if isinstance(current_user, Customer) and not current_user.phone:
+                current_user.phone = customer_phone
             db.session.flush()
 
             for item in line_items:
@@ -609,21 +685,121 @@ def create_app(env_name=None):
 
             db.session.commit()
             save_cart({})
+            session.pop("checkout_delivery_fee", None)
 
             return render_template("checkout.html", order_success=True, order=new_order)
 
         return render_template(
             "checkout.html", line_items=line_items, subtotal=subtotal,
             banks=banks, delivery_options=delivery_options, proposed_fee=proposed_fee,
-            post_office_options=post_office_options,
         )
+
+    # =========================================================
+    # CUSTOMER ACCOUNT ROUTES (optional login on top of guest checkout)
+    # =========================================================
+    def _username_is_reserved(username):
+        """Admin usernames (Danuta, Tofik, ...) can never be used for a customer
+        account — case-insensitive check against the real admin table."""
+        return User.query.filter(func.lower(User.username) == username.lower()).first() is not None
+
+    @app.route("/register", methods=["GET", "POST"])
+    def customer_register():
+        if current_user.is_authenticated:
+            return redirect(url_for("customer_account") if isinstance(current_user, Customer) else url_for("admin_dashboard"))
+
+        if request.method == "POST":
+            full_name = request.form.get("full_name", "").strip()
+            username = request.form.get("username", "").strip()
+            password = request.form.get("password", "")
+            confirm_password = request.form.get("confirm_password", "")
+
+            errors = []
+            if not full_name:
+                errors.append("Full name is required.")
+            if not username or len(username) < 3:
+                errors.append("Username must be at least 3 characters.")
+            elif _username_is_reserved(username):
+                flash("That username is reserved. Redirecting you to Admin Login instead.", "warning")
+                return redirect(url_for("admin_login"))
+            elif Customer.query.filter(func.lower(Customer.username) == username.lower()).first():
+                errors.append("That username is already taken — please choose another.")
+            if len(password) < 6:
+                errors.append("Password must be at least 6 characters.")
+            if password != confirm_password:
+                errors.append("Passwords do not match.")
+
+            if errors:
+                for e in errors:
+                    flash(e, "error")
+                return render_template("register.html", full_name=full_name, username=username)
+
+            customer = Customer(full_name=full_name, username=username)
+            customer.set_password(password)
+            db.session.add(customer)
+            db.session.commit()
+            login_user(customer)
+            flash(f"Welcome to Danu Perfume & Cosmo, {full_name}!", "success")
+            return redirect(url_for("index"))
+
+        return render_template("register.html")
+
+    @app.route("/api/check-username")
+    def api_check_username():
+        """Live availability check used while typing on the register form."""
+        username = request.args.get("username", "").strip()
+        if len(username) < 3:
+            return jsonify({"available": False, "reason": "too_short"})
+        if _username_is_reserved(username):
+            return jsonify({"available": False, "reason": "reserved"})
+        taken = Customer.query.filter(func.lower(Customer.username) == username.lower()).first() is not None
+        return jsonify({"available": not taken, "reason": "taken" if taken else None})
+
+    @app.route("/login", methods=["GET", "POST"])
+    def customer_login():
+        if current_user.is_authenticated:
+            return redirect(url_for("customer_account") if isinstance(current_user, Customer) else url_for("admin_dashboard"))
+
+        if request.method == "POST":
+            username = request.form.get("username", "").strip()
+            password = request.form.get("password", "")
+
+            if _username_is_reserved(username):
+                return redirect(url_for("admin_login"))
+
+            customer = Customer.query.filter(func.lower(Customer.username) == username.lower()).first()
+            if customer and customer.check_password(password):
+                login_user(customer)
+                flash(f"Welcome back, {customer.full_name}!", "success")
+                next_page = request.args.get("next")
+                return redirect(next_page or url_for("index"))
+
+            flash("Invalid username or password.", "error")
+
+        return render_template("customer_login.html")
+
+    @app.route("/logout")
+    @login_required
+    def customer_logout():
+        if not isinstance(current_user, Customer):
+            return redirect(url_for("admin_logout"))
+        logout_user()
+        flash("You've been logged out.", "success")
+        return redirect(url_for("index"))
+
+    @app.route("/account")
+    @login_required
+    def customer_account():
+        if not isinstance(current_user, Customer):
+            return redirect(url_for("admin_dashboard"))
+        orders = Order.query.filter_by(customer_id=current_user.id).order_by(Order.created_at.desc()).all()
+        return render_template("account.html", orders=orders)
 
     # =========================================================
     # ADMIN ROUTES
     # =========================================================
     @app.route("/admin/login", methods=["GET", "POST"])
     def admin_login():
-        if current_user.is_authenticated:
+        if current_user.is_authenticated and isinstance(current_user, User):
             return redirect(url_for("admin_dashboard"))
 
         if request.method == "POST":
@@ -632,6 +808,8 @@ def create_app(env_name=None):
 
             user = User.query.filter_by(username=username).first()
             if user and user.check_password(password):
+                if current_user.is_authenticated:
+                    logout_user()  # a customer session was active — swap it for the admin one
                 login_user(user)
                 log_activity("auth.login", f"{username} logged in")
                 flash("Welcome back!", "success")
@@ -643,7 +821,7 @@ def create_app(env_name=None):
         return render_template("admin_login.html")
 
     @app.route("/admin/logout")
-    @login_required
+    @admin_required
     def admin_logout():
         log_activity("auth.logout", f"{current_user.username} logged out")
         logout_user()
@@ -652,7 +830,7 @@ def create_app(env_name=None):
 
     @app.route("/admin")
     @app.route("/admin/dashboard")
-    @login_required
+    @admin_required
     def admin_dashboard():
         total_orders = Order.query.count()
         pending_orders = Order.query.filter_by(status=Order.STATUS_PENDING).count()
@@ -660,7 +838,6 @@ def create_app(env_name=None):
         total_sales = db.session.query(func.coalesce(func.sum(Order.total_amount), 0)).filter(
             Order.status != Order.STATUS_CANCELLED
         ).scalar()
-        active_payment_accounts = Bank.query.filter_by(is_active=True).count()
 
         recent_orders = Order.query.order_by(Order.created_at.desc()).limit(10).all()
         low_stock_products = Product.query.filter(Product.stock <= 5).limit(5).all()
@@ -672,7 +849,6 @@ def create_app(env_name=None):
             pending_orders=pending_orders,
             total_products=total_products,
             total_sales=total_sales,
-            active_payment_accounts=active_payment_accounts,
             recent_orders=recent_orders,
             low_stock_products=low_stock_products,
             high_risk_orders=high_risk_orders,
@@ -681,12 +857,12 @@ def create_app(env_name=None):
 
     # --- Analytics ---
     @app.route("/admin/analytics")
-    @login_required
+    @admin_required
     def admin_analytics():
         return render_template("admin_dashboard.html", view="analytics")
 
     @app.route("/admin/analytics/sales-data")
-    @login_required
+    @admin_required
     def admin_analytics_data():
         """JSON data (last 14 days) consumed by Chart.js on the analytics view."""
         days = []
@@ -732,7 +908,7 @@ def create_app(env_name=None):
 
     # --- Product CRUD ---
     @app.route("/admin/products")
-    @login_required
+    @admin_required
     def admin_products():
         products = Product.query.order_by(Product.created_at.desc()).all()
         categories = Category.query.all()
@@ -925,7 +1101,7 @@ def create_app(env_name=None):
         return render_template("admin_dashboard.html", view="products_import")
 
     @app.route("/admin/products/import/template.csv")
-    @login_required
+    @admin_required
     def admin_products_import_template():
         header = "name,sku,brand,description,price,stock,volume_ml,top_notes,heart_notes,base_notes,category_slug\n"
         example = 'Golden Oud,DP-001,Danu,"A rich oud fragrance",1200,20,50,"Bergamot, Saffron","Oud, Rose","Amber, Musk",oud-attar\n'
@@ -935,14 +1111,14 @@ def create_app(env_name=None):
 
     # --- Reviews Moderation ---
     @app.route("/admin/reviews")
-    @login_required
+    @admin_required
     def admin_reviews():
         pending = Review.query.filter_by(is_approved=False).order_by(Review.created_at.desc()).all()
         approved = Review.query.filter_by(is_approved=True).order_by(Review.created_at.desc()).limit(50).all()
         return render_template("admin_dashboard.html", view="reviews", pending=pending, approved=approved)
 
     @app.route("/admin/reviews/<int:review_id>/approve", methods=["POST"])
-    @login_required
+    @admin_required
     def admin_review_approve(review_id):
         review = Review.query.get_or_404(review_id)
         review.is_approved = True
@@ -952,7 +1128,7 @@ def create_app(env_name=None):
         return redirect(url_for("admin_reviews"))
 
     @app.route("/admin/reviews/<int:review_id>/delete", methods=["POST"])
-    @login_required
+    @admin_required
     def admin_review_delete(review_id):
         review = Review.query.get_or_404(review_id)
         db.session.delete(review)
@@ -962,7 +1138,7 @@ def create_app(env_name=None):
 
     # --- Stock Alerts ---
     @app.route("/admin/stock-alerts")
-    @login_required
+    @admin_required
     def admin_stock_alerts():
         alerts = (
             StockAlert.query.filter_by(notified=False)
@@ -973,7 +1149,7 @@ def create_app(env_name=None):
         return render_template("admin_dashboard.html", view="stock_alerts", alerts=alerts)
 
     @app.route("/admin/stock-alerts/<int:alert_id>/mark-notified", methods=["POST"])
-    @login_required
+    @admin_required
     def admin_stock_alert_mark_notified(alert_id):
         alert = StockAlert.query.get_or_404(alert_id)
         alert.notified = True
@@ -982,7 +1158,7 @@ def create_app(env_name=None):
 
     # --- Order Management ---
     @app.route("/admin/orders")
-    @login_required
+    @admin_required
     def admin_orders():
         status_filter = request.args.get("status")
         query = Order.query
@@ -1002,7 +1178,7 @@ def create_app(env_name=None):
         )
 
     @app.route("/admin/orders/<int:order_id>")
-    @login_required
+    @admin_required
     def admin_order_detail(order_id):
         order = Order.query.get_or_404(order_id)
         return render_template(
@@ -1017,7 +1193,7 @@ def create_app(env_name=None):
         )
 
     @app.route("/admin/orders/<int:order_id>/status", methods=["POST"])
-    @login_required
+    @admin_required
     def admin_order_update_status(order_id):
         order = Order.query.get_or_404(order_id)
         new_status = request.form.get("status")
@@ -1038,7 +1214,7 @@ def create_app(env_name=None):
         return redirect(url_for("admin_order_detail", order_id=order.id))
 
     @app.route("/admin/orders/<int:order_id>/delivery-fee", methods=["POST"])
-    @login_required
+    @admin_required
     def admin_order_update_delivery_fee(order_id):
         order = Order.query.get_or_404(order_id)
 
@@ -1059,7 +1235,7 @@ def create_app(env_name=None):
         return redirect(url_for("admin_order_detail", order_id=order.id))
 
     @app.route("/admin/orders/<int:order_id>/invoice")
-    @login_required
+    @admin_required
     def admin_order_invoice(order_id):
         """Printable HTML invoice (use the browser's Print -> Save as PDF)."""
         order = Order.query.get_or_404(order_id)
@@ -1137,6 +1313,100 @@ def create_app(env_name=None):
         db.session.commit()
         flash("Payment account removed.", "success")
         return redirect(url_for("admin_banks"))
+
+    # --- Post Office Directory Management ---
+    @app.route("/admin/post-offices")
+    @super_admin_required
+    def admin_post_offices():
+        query = request.args.get("query", "").strip()
+        offices_query = PostOffice.query
+        if query:
+            like_term = f"%{query}%"
+            offices_query = offices_query.filter(
+                db.or_(PostOffice.name.ilike(like_term), PostOffice.city.ilike(like_term), PostOffice.region.ilike(like_term))
+            )
+        offices = offices_query.order_by(PostOffice.city, PostOffice.name).limit(200).all()
+        total_count = PostOffice.query.count()
+        return render_template("admin_dashboard.html", view="post_offices", offices=offices, total_count=total_count, query=query)
+
+    @app.route("/admin/post-offices/new", methods=["POST"])
+    @super_admin_required
+    def admin_post_office_new():
+        name = request.form.get("name", "").strip()
+        city = request.form.get("city", "").strip()
+        region = request.form.get("region", "").strip()
+        postal_code = request.form.get("postal_code", "").strip()
+        address = request.form.get("address", "").strip()
+
+        if not name or not city:
+            flash("Post office name and city are required.", "error")
+            return redirect(url_for("admin_post_offices"))
+
+        db.session.add(PostOffice(name=name, city=city, region=region, postal_code=postal_code, address=address))
+        db.session.commit()
+        log_activity("post_office.create", name)
+        flash("Post office added.", "success")
+        return redirect(url_for("admin_post_offices"))
+
+    @app.route("/admin/post-offices/<int:office_id>/delete", methods=["POST"])
+    @super_admin_required
+    def admin_post_office_delete(office_id):
+        office = PostOffice.query.get_or_404(office_id)
+        db.session.delete(office)
+        db.session.commit()
+        flash("Post office removed.", "success")
+        return redirect(url_for("admin_post_offices"))
+
+    @app.route("/admin/post-offices/import", methods=["GET", "POST"])
+    @super_admin_required
+    def admin_post_offices_import():
+        """Bulk-import the full official branch directory (handles 1000+ rows) via CSV."""
+        if request.method == "POST":
+            csv_file = request.files.get("csv_file")
+            if not csv_file or not csv_file.filename.lower().endswith(".csv"):
+                flash("Please upload a valid .csv file.", "error")
+                return render_template("admin_dashboard.html", view="post_offices_import")
+
+            stream = io.StringIO(csv_file.stream.read().decode("utf-8-sig"))
+            reader = csv.DictReader(stream)
+
+            created, skipped = 0, 0
+            for row in reader:
+                name = (row.get("name") or "").strip()
+                city = (row.get("city") or "").strip()
+                if not name or not city:
+                    skipped += 1
+                    continue
+
+                db.session.add(PostOffice(
+                    name=name,
+                    city=city,
+                    region=(row.get("region") or "").strip(),
+                    postal_code=(row.get("postal_code") or "").strip(),
+                    address=(row.get("address") or "").strip(),
+                    is_active=True,
+                ))
+                created += 1
+
+                # Commit in batches so a 1000+ row file doesn't hold one giant transaction
+                if created % 200 == 0:
+                    db.session.commit()
+
+            db.session.commit()
+            log_activity("post_office.bulk_import", f"{created} created, {skipped} skipped")
+            flash(f"Import complete: {created} post offices added, {skipped} rows skipped.", "success")
+            return redirect(url_for("admin_post_offices"))
+
+        return render_template("admin_dashboard.html", view="post_offices_import")
+
+    @app.route("/admin/post-offices/import/template.csv")
+    @admin_required
+    def admin_post_offices_import_template():
+        header = "name,city,region,postal_code,address\n"
+        example = 'Bole Post Office,Addis Ababa,Addis Ababa,1000,"Bole Sub-city, Addis Ababa"\n'
+        return Response(header + example, mimetype="text/csv", headers={
+            "Content-Disposition": "attachment; filename=danu_post_office_import_template.csv"
+        })
 
     # --- Delivery Zones ---
     @app.route("/admin/delivery-zones")
@@ -1239,7 +1509,7 @@ def create_app(env_name=None):
 
     # --- Loyalty Accounts ---
     @app.route("/admin/loyalty")
-    @login_required
+    @admin_required
     def admin_loyalty():
         accounts = LoyaltyAccount.query.order_by(LoyaltyAccount.points.desc()).limit(100).all()
         return render_template("admin_dashboard.html", view="loyalty", accounts=accounts)
@@ -1368,23 +1638,43 @@ def create_app(env_name=None):
         _init_db(app)
         print("Database initialized.")
 
+    def _ensure_schema(flask_app):
+        """
+        Safety net for local SQLite development: if the model definitions gain new
+        columns after a database file already exists, add the missing columns
+        automatically instead of crashing with 'no such column'. Postgres/Neon in
+        production should use proper migrations (e.g. Flask-Migrate) instead.
+        """
+        with flask_app.app_context():
+            if db.engine.url.get_backend_name() != "sqlite":
+                return
+
+            inspector = inspect(db.engine)
+            all_models = (
+                User, Customer, ActivityLog, Category, Product, ProductImage, Review, StockAlert,
+                Bank, DeliveryZone, Coupon, LoyaltyAccount, Banner, PostOffice, Order, OrderItem,
+            )
+            for model in all_models:
+                table_name = model.__tablename__
+                if table_name not in inspector.get_table_names():
+                    continue
+
+                existing_columns = {column["name"] for column in inspector.get_columns(table_name)}
+                for column in model.__table__.columns:
+                    if column.name in existing_columns:
+                        continue
+
+                    column_type = column.type.compile(dialect=db.engine.dialect)
+                    db.session.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column.name} {column_type}"))
+
+            db.session.commit()
+
     def _init_db(flask_app):
         with flask_app.app_context():
             db.create_all()
+            _ensure_schema(flask_app)
 
-            for acct in flask_app.config["ADMIN_ACCOUNTS"]:
-                # Support tuples of (username, full_name, password) and (username, full_name, password, role)
-                try:
-                    if len(acct) == 4:
-                        username, full_name, password, role = acct
-                    elif len(acct) == 3:
-                        username, full_name, password = acct
-                        role = User.ROLE_SUPER_ADMIN
-                    else:
-                        continue
-                except Exception:
-                    continue
-
+            for username, full_name, password, role in flask_app.config["ADMIN_ACCOUNTS"]:
                 if not User.query.filter_by(username=username).first():
                     admin = User(full_name=full_name, username=username, role=role, is_admin=True)
                     admin.set_password(password)
@@ -1414,100 +1704,15 @@ def create_app(env_name=None):
                 ]
                 db.session.add_all(default_zones)
 
+            if PostOffice.query.count() == 0:
+                db.session.add_all([PostOffice(**office) for office in SEED_POST_OFFICES])
+
             db.session.commit()
 
     with app.app_context():
         try:
-            # Ensure base tables exist (will not modify existing columns)
             db.create_all()
-
-            # SQLite compatibility: add missing columns that older DBs may lack.
-            def _ensure_schema_compat():
-                engine = db.engine
-
-                def has_column(table, column):
-                    try:
-                        rows = engine.execute(text(f"PRAGMA table_info('{table}')")).fetchall()
-                    except Exception:
-                        return False
-                    return any(r[1] == column for r in rows)
-
-                # users.username (older DBs may not have this column)
-                if not has_column('users', 'username'):
-                    try:
-                        with engine.begin() as conn:
-                            conn.execute(text("ALTER TABLE users ADD COLUMN username VARCHAR(60)"))
-                    except Exception:
-                        pass
-
-                # users.role (older DBs may not have role column)
-                if not has_column('users', 'role'):
-                    try:
-                        with engine.begin() as conn:
-                            conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(30)"))
-                    except Exception:
-                        pass
-                else:
-                    # Ensure existing users have a role set
-                    try:
-                        with engine.begin() as conn:
-                            conn.execute(text(f"UPDATE users SET role = :role WHERE role IS NULL OR role = ''"), {'role': User.ROLE_SUPER_ADMIN})
-                    except Exception:
-                        pass
-                    # Also ensure via ORM update in case the SQL above didn't take effect
-                    try:
-                        db.session.query(User).filter((User.role == None) | (User.role == "")).update({"role": User.ROLE_SUPER_ADMIN}, synchronize_session=False)
-                        db.session.commit()
-                    except Exception:
-                        db.session.rollback()
-
-                # products.sku (some seed DBs may be from an earlier schema)
-                if not has_column('products', 'sku'):
-                    try:
-                        with engine.begin() as conn:
-                            conn.execute(text("ALTER TABLE products ADD COLUMN sku VARCHAR(40)"))
-                    except Exception:
-                        pass
-
-                # Ensure common `orders` columns exist (avoid admin dashboard query failures)
-                orders_columns = {
-                    'rider_name': "VARCHAR(100)",
-                    'rider_phone': "VARCHAR(30)",
-                    'notes': "TEXT",
-                    'is_gift': "BOOLEAN",
-                    'gift_message': "VARCHAR(300)",
-                    'payment_method': "VARCHAR(30)",
-                    'bank_id': "INTEGER",
-                    'payment_screenshot': "VARCHAR(255)",
-                    'coupon_code': "VARCHAR(40)",
-                    'discount_amount': "NUMERIC",
-                    'subtotal_amount': "NUMERIC",
-                    'delivery_fee': "NUMERIC",
-                    'total_amount': "NUMERIC",
-                    'points_earned': "INTEGER",
-                    'risk_level': "VARCHAR(20)",
-                    'risk_reasons': "VARCHAR(255)",
-                    'status': "VARCHAR(30)",
-                    'created_at': "DATETIME",
-                    'updated_at': "DATETIME",
-                }
-                for col, coltype in orders_columns.items():
-                    if not has_column('orders', col):
-                        try:
-                            with engine.begin() as conn:
-                                conn.execute(text(f"ALTER TABLE orders ADD COLUMN {col} {coltype}"))
-                        except Exception:
-                            pass
-
-                # Populate username for existing users if missing
-                try:
-                    with engine.begin() as conn:
-                        conn.execute(text("UPDATE users SET username = full_name WHERE username IS NULL OR username = ''"))
-                except Exception:
-                    pass
-
-            _ensure_schema_compat()
-
+            _ensure_schema(app)
             missing_admin = any(
                 not User.query.filter_by(username=u).first()
                 for u, _, _, _ in app.config["ADMIN_ACCOUNTS"]

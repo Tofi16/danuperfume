@@ -18,8 +18,11 @@ class Config:
     # --- Security ---
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-fallback-secret-key")
 
-    # --- Database (Neon.tech PostgreSQL) ---
-    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL")
+    # --- Database (Neon PostgreSQL in production; SQLite fallback for local dev) ---
+    SQLALCHEMY_DATABASE_URI = os.environ.get(
+        "DATABASE_URL",
+        f"sqlite:///{os.path.join(basedir, 'danu_perfume.db')}",
+    )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         "pool_pre_ping": True,   # Prevents stale connection errors with Neon's serverless Postgres

@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}{{ t('checkout.title') }} — Danu Perfume{% endblock %}
+{% block title %}{{ t('checkout.title') }} — Danu Perfume &amp; Cosmo{% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto px-5 sm:px-8 py-16">
+<div class="max-w-5xl mx-auto px-5 sm:px-8 py-10 sm:py-14">
 
   {% if order_success %}
   <!-- ============ SUCCESS STATE ============ -->
@@ -19,7 +19,10 @@
       <span class="text-danu-cream/60">{{ t('checkout.order_code') }}:</span>
       <span class="text-danu-goldlight font-semibold ml-2">{{ order.order_code }}</span>
     </div>
-    <div class="mt-8">
+    <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+      <a href="{{ url_for('track_order') }}" class="btn-outline-luxury border rounded-full px-8 py-3 text-sm uppercase tracking-widest inline-block">
+        Track Order
+      </a>
       <a href="{{ url_for('index') }}" class="btn-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest inline-block">
         {{ t('nav.home') }}
       </a>
@@ -27,155 +30,213 @@
   </div>
 
   {% else %}
-  <!-- ============ CHECKOUT FORM ============ -->
-  <div class="text-center mb-12 fade-up">
-    <h1 class="font-serif text-3xl sm:text-4xl text-gold-gradient mb-3">{{ t('checkout.title') }}</h1>
-    <p class="text-danu-cream/60 text-sm">{{ t('checkout.subtitle') }}</p>
-  </div>
+  <!-- ============ CHECKOUT WIZARD ============ -->
+  <div x-data="checkoutWizard()" class="grid grid-cols-1 lg:grid-cols-5 gap-8">
 
-  <div class="grid grid-cols-1 lg:grid-cols-5 gap-10">
+    <div class="lg:col-span-3">
 
-    <!-- Form -->
-    <form method="POST" enctype="multipart/form-data" class="lg:col-span-3 glass rounded-2xl p-6 sm:p-8 space-y-5"
-          x-data="{ fileName: '', selectedBank: {{ banks[0].id if banks else 'null' }}, deliveryType: '{{ delivery_options[0] }}', isGift: false }">
-
-      <input type="hidden" name="delivery_fee" value="{{ proposed_fee }}">
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <div>
-          <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.full_name') }}</label>
-          <input type="text" name="customer_name" required
-                 class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
-        </div>
-        <div>
-          <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.phone') }}</label>
-          <input type="tel" name="customer_phone" required placeholder="+251 9XX XXX XXX"
-                 class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <div>
-          <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">City / Town</label>
-          <input type="text" name="city" required placeholder="e.g. Addis Ababa"
-                 class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
-        </div>
-        <div>
-          <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Nearest Post Office (optional)</label>
-          <select name="post_office_location"
-                  class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold appearance-none">
-            <option value="">Select a nearby post office</option>
-            {% for office in post_office_options %}
-            <option value="{{ office }}">{{ office }}</option>
-            {% endfor %}
-          </select>
-        </div>
-      </div>
-
-      <div>
-        <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.address') }}</label>
-        <textarea name="delivery_address" rows="3" required
-                  class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold"></textarea>
-      </div>
-
-      <div>
-        <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Delivery Method</label>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {% for option in delivery_options %}
-          <label class="glass-card rounded-xl p-3 flex items-center gap-2 cursor-pointer text-sm"
-                 :class="deliveryType === '{{ option }}' && 'border-danu-gold'">
-            <input type="radio" name="delivery_type" value="{{ option }}" x-model="deliveryType"
-                   {% if loop.first %}checked{% endif %} class="accent-danu-gold">
-            {{ option }}
-          </label>
-          {% endfor %}
-        </div>
-        <p class="text-xs text-danu-cream/40 mt-2">A delivery fee of <span class="text-danu-goldlight">{{ currency }} {{ "%.2f"|format(proposed_fee) }}</span> will apply — our team may adjust this after confirming your exact location.</p>
-      </div>
-
-      <div>
-        <label class="flex items-center gap-2 text-sm mb-2">
-          <input type="checkbox" name="is_gift" x-model="isGift" class="accent-danu-gold">
-          This order is a gift 🎁
-        </label>
-        <textarea x-show="isGift" name="gift_message" rows="2" placeholder="Write a short gift message..."
-                  class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold"></textarea>
-      </div>
-
-      <div>
-        <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.notes') }}</label>
-        <textarea name="notes" rows="2"
-                  class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold"></textarea>
-      </div>
-
-      <div>
-        <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Coupon Code (optional)</label>
-        <div class="flex gap-2" x-data="{ code: '', message: '', valid: null }">
-          <input type="text" name="coupon_code" x-model="code" placeholder="e.g. WELCOME10"
-                 class="flex-1 bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm uppercase focus:outline-none focus:border-danu-gold">
-          <button type="button"
-                  @click="fetch('{{ url_for('api_coupon_validate') }}', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({code}) }).then(r => r.json()).then(d => { valid = d.valid; message = d.valid ? ('Discount: {{ currency }} ' + d.discount.toFixed(2)) : d.message; })"
-                  class="btn-outline-luxury border rounded-lg px-5 text-xs uppercase tracking-widest">Apply</button>
-        </div>
-        <p class="text-xs mt-1" :class="valid ? 'text-green-400' : 'text-red-400'" x-text="message" x-show="message"></p>
-      </div>
-
-      <!-- Payment Accounts -->
-      <div>
-        <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.payment_method') }}</label>
-        <p class="text-xs text-danu-cream/50 mb-3">Send the total amount to one of the accounts below, then upload your receipt screenshot.</p>
-
-        <div class="space-y-3">
-          {% for bank in banks %}
-          <label class="glass-card rounded-xl p-4 flex items-center justify-between cursor-pointer"
-                 :class="selectedBank === {{ bank.id }} && 'border-danu-gold'">
-            <div class="flex items-center gap-3">
-              <input type="radio" name="bank_id" value="{{ bank.id }}" x-model="selectedBank"
-                     {% if loop.first %}checked{% endif %} class="accent-danu-gold">
-              <div>
-                <p class="text-sm font-medium text-danu-goldlight">{{ bank.bank_name }}</p>
-                <p class="text-xs text-danu-cream/60">{{ bank.account_name }}</p>
+      <!-- Step progress -->
+      <div class="flex items-center justify-center gap-2 mb-8">
+        <template x-for="(label, i) in ['Delivery', 'Payment', 'Confirm']" :key="i">
+          <div class="flex items-center gap-2">
+            <div class="flex flex-col items-center gap-1">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-colors"
+                   :class="step > i + 1 ? 'bg-danu-gold text-danu-black' : (step === i + 1 ? 'border-2 border-danu-gold text-danu-goldlight' : 'border border-danu-cream/20 text-danu-cream/40')">
+                <span x-show="step <= i + 1" x-text="i + 1"></span>
+                <svg x-show="step > i + 1" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
               </div>
+              <span class="text-[0.65rem] uppercase tracking-wider" :class="step === i + 1 ? 'text-danu-goldlight' : 'text-danu-cream/40'" x-text="label"></span>
             </div>
-            <div class="flex items-center gap-2" x-data="{ copied: false }">
-              <span class="text-sm font-mono tracking-wider">{{ bank.account_number }}</span>
-              <button type="button"
-                      @click.prevent="navigator.clipboard.writeText('{{ bank.account_number }}'); copied = true; setTimeout(() => copied = false, 1500)"
-                      class="text-xs px-2 py-1 rounded-full border border-danu-gold/30 hover:border-danu-gold">
-                <span x-show="!copied">Copy</span>
-                <span x-show="copied" class="text-danu-gold">Copied!</span>
-              </button>
+            <div x-show="i < 2" class="w-8 sm:w-16 h-px bg-danu-cream/15 -mt-4"></div>
+          </div>
+        </template>
+      </div>
+
+      <form method="POST" enctype="multipart/form-data" class="glass rounded-2xl p-6 sm:p-8"
+            x-data="{ fileName: '', selectedBank: {{ banks[0].id if banks else 'null' }}, deliveryType: '{{ delivery_options[0] }}', isGift: false }">
+
+        <input type="hidden" name="delivery_fee" value="{{ proposed_fee }}">
+
+        <!-- ===== STEP 1 : DELIVERY ===== -->
+        <div x-show="step === 1" x-cloak class="space-y-5 animate__animated animate__fadeIn">
+          <h2 class="font-serif text-xl text-danu-goldlight mb-1">Delivery Details</h2>
+          <p class="text-xs text-danu-cream/50 mb-4">Where should we send your order?</p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div>
+              <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.full_name') }}</label>
+              <input type="text" name="customer_name" :required="step === 1"
+                     value="{{ current_user.full_name if current_user.is_authenticated and not current_user.is_admin|default(false) else '' }}"
+                     class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
             </div>
-          </label>
-          {% else %}
-          <p class="text-sm text-danu-cream/40">No payment accounts configured yet. Please contact us directly.</p>
-          {% endfor %}
+            <div>
+              <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.phone') }}</label>
+              <input type="tel" name="customer_phone" :required="step === 1" placeholder="+251 9XX XXX XXX"
+                     value="{{ current_user.phone if current_user.is_authenticated and not current_user.is_admin|default(false) and current_user.phone else '' }}"
+                     class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div>
+              <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">City / Town</label>
+              <input type="text" name="city" :required="step === 1" placeholder="e.g. Addis Ababa"
+                     class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+            </div>
+            <div x-data="{ query: '', results: [], open: false, selectedName: '' }" @click.outside="open = false" class="relative">
+              <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Nearest Post Office</label>
+              <input type="text" x-model="query" @input.debounce.300ms="query.length > 1 ? fetch('{{ url_for('api_post_offices') }}?query=' + encodeURIComponent(query)).then(r => r.json()).then(d => { results = d.results; open = true; }) : (results = [], open = false)"
+                     @focus="query.length > 1 && (open = true)"
+                     placeholder="Search city or office name..."
+                     class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+              <input type="hidden" name="post_office_location" :value="selectedName">
+
+              <div x-show="open && results.length" x-cloak
+                   class="absolute z-30 mt-1 w-full glass rounded-lg max-h-56 overflow-y-auto shadow-2xl">
+                <template x-for="office in results" :key="office.name + office.city">
+                  <button type="button"
+                          @click="selectedName = office.name + ' — ' + office.city; query = selectedName; open = false"
+                          class="w-full text-left px-4 py-2.5 text-sm hover:bg-danu-gold/10 border-b border-danu-gold/5 last:border-0">
+                    <span class="text-danu-goldlight" x-text="office.name"></span>
+                    <span class="text-danu-cream/40 text-xs block" x-text="office.city + (office.region ? ' · ' + office.region : '')"></span>
+                  </button>
+                </template>
+              </div>
+              <p x-show="open && query.length > 1 && results.length === 0" class="text-xs text-danu-cream/40 mt-1">No matching post office found.</p>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.address') }}</label>
+            <textarea name="delivery_address" rows="2" :required="step === 1"
+                      class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold"></textarea>
+          </div>
+
+          <div>
+            <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Delivery Method</label>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {% for option in delivery_options %}
+              <label class="glass-card rounded-xl p-3 flex items-center gap-2 cursor-pointer text-sm"
+                     :class="deliveryType === '{{ option }}' && 'border-danu-gold'">
+                <input type="radio" name="delivery_type" value="{{ option }}" x-model="deliveryType"
+                       {% if loop.first %}checked{% endif %} class="accent-danu-gold">
+                {{ option }}
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+
+          <button type="button" @click="if ($event.target.form.reportValidity()) step = 2"
+                  class="btn-luxury w-full rounded-full py-3.5 text-sm uppercase tracking-widest">
+            Continue to Payment
+          </button>
         </div>
 
-        <input type="hidden" name="payment_method" :value="selectedBank ? 'Bank Transfer' : 'Telebirr'">
-      </div>
+        <!-- ===== STEP 2 : PAYMENT ===== -->
+        <div x-show="step === 2" x-cloak class="space-y-5 animate__animated animate__fadeIn">
+          <h2 class="font-serif text-xl text-danu-goldlight mb-1">Payment</h2>
+          <p class="text-xs text-danu-cream/50 mb-4">Send the total to one of the accounts below.</p>
 
-      <div>
-        <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.upload_receipt') }}</label>
-        <p class="text-xs text-danu-cream/50 mb-3">{{ t('checkout.upload_hint') }}</p>
+          <div class="space-y-3">
+            {% for bank in banks %}
+            <label class="glass-card rounded-xl p-4 flex items-center justify-between cursor-pointer"
+                   :class="selectedBank === {{ bank.id }} && 'border-danu-gold'">
+              <div class="flex items-center gap-3">
+                <input type="radio" name="bank_id" value="{{ bank.id }}" x-model="selectedBank"
+                       {% if loop.first %}checked{% endif %} class="accent-danu-gold">
+                <div>
+                  <p class="text-sm font-medium text-danu-goldlight">{{ bank.bank_name }}</p>
+                  <p class="text-xs text-danu-cream/60">{{ bank.account_name }}</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2" x-data="{ copied: false }">
+                <span class="text-sm font-mono tracking-wider">{{ bank.account_number }}</span>
+                <button type="button"
+                        @click.prevent="navigator.clipboard.writeText('{{ bank.account_number }}'); copied = true; setTimeout(() => copied = false, 1500)"
+                        class="text-xs px-2 py-1 rounded-full border border-danu-gold/30 hover:border-danu-gold">
+                  <span x-show="!copied">Copy</span>
+                  <span x-show="copied" class="text-danu-gold">Copied!</span>
+                </button>
+              </div>
+            </label>
+            {% else %}
+            <p class="text-sm text-danu-cream/40">No payment accounts configured yet. Please contact us directly.</p>
+            {% endfor %}
+          </div>
+          <input type="hidden" name="payment_method" :value="selectedBank ? 'Bank Transfer' : 'Telebirr'">
 
-        <label class="flex flex-col items-center justify-center border border-dashed border-danu-gold/40 rounded-xl p-8 cursor-pointer hover:border-danu-gold transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-danu-gold mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l-3.75 3.75M12 9.75l3.75 3.75M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
-          </svg>
-          <span class="text-sm text-danu-cream/70" x-text="fileName || 'Click to select a screenshot'"></span>
-          <input type="file" name="payment_screenshot" accept="image/png, image/jpeg, image/webp, image/gif" required
-                 class="hidden" @change="fileName = $event.target.files[0]?.name || ''">
-        </label>
-      </div>
+          <div>
+            <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Coupon Code (optional)</label>
+            <div class="flex gap-2" x-data="{ code: '', message: '', valid: null }">
+              <input type="text" name="coupon_code" x-model="code" placeholder="e.g. WELCOME10"
+                     class="flex-1 bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm uppercase focus:outline-none focus:border-danu-gold">
+              <button type="button"
+                      @click="fetch('{{ url_for('api_coupon_validate') }}', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({code}) }).then(r => r.json()).then(d => { valid = d.valid; message = d.valid ? ('Discount: {{ currency }} ' + d.discount.toFixed(2)) : d.message; })"
+                      class="btn-outline-luxury border rounded-lg px-5 text-xs uppercase tracking-widest">Apply</button>
+            </div>
+            <p class="text-xs mt-1" :class="valid ? 'text-green-400' : 'text-red-400'" x-text="message" x-show="message"></p>
+          </div>
 
-      <button type="submit" class="btn-luxury w-full rounded-full py-3.5 text-sm uppercase tracking-widest">
-        {{ t('checkout.place_order') }}
-      </button>
-    </form>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="is_gift" x-model="isGift" class="accent-danu-gold">
+            This order is a gift 🎁
+          </label>
+          <textarea x-show="isGift" name="gift_message" rows="2" placeholder="Write a short gift message..."
+                    class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold"></textarea>
 
-    <!-- Order Summary -->
-    <div class="lg:col-span-2">
+          <div>
+            <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.notes') }}</label>
+            <textarea name="notes" rows="2"
+                      class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold"></textarea>
+          </div>
+
+          <div class="flex gap-3">
+            <button type="button" @click="step = 1" class="btn-outline-luxury border rounded-full px-6 py-3.5 text-sm uppercase tracking-widest">
+              Back
+            </button>
+            <button type="button" @click="step = 3" class="btn-luxury flex-1 rounded-full py-3.5 text-sm uppercase tracking-widest">
+              Continue to Confirm
+            </button>
+          </div>
+        </div>
+
+        <!-- ===== STEP 3 : CONFIRM ===== -->
+        <div x-show="step === 3" x-cloak class="space-y-5 animate__animated animate__fadeIn">
+          <h2 class="font-serif text-xl text-danu-goldlight mb-1">Confirm &amp; Upload Receipt</h2>
+          <p class="text-xs text-danu-cream/50 mb-4">{{ t('checkout.upload_hint') }}</p>
+
+          <label class="flex flex-col items-center justify-center border border-dashed border-danu-gold/40 rounded-xl p-8 cursor-pointer hover:border-danu-gold transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-danu-gold mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l-3.75 3.75M12 9.75l3.75 3.75M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+            </svg>
+            <span class="text-sm text-danu-cream/70" x-text="fileName || 'Click to select a screenshot'"></span>
+            <input type="file" name="payment_screenshot" accept="image/png, image/jpeg, image/webp, image/gif" :required="step === 3"
+                   class="hidden" @change="fileName = $event.target.files[0]?.name || ''">
+          </label>
+
+          <div class="glass-card rounded-xl p-4 text-xs text-danu-cream/60 space-y-1 lg:hidden">
+            <div class="flex justify-between"><span>{{ t('cart.subtotal') }}</span><span>{{ currency }} {{ "%.2f"|format(subtotal) }}</span></div>
+            <div class="flex justify-between"><span>Delivery Fee</span><span>{{ currency }} {{ "%.2f"|format(proposed_fee) }}</span></div>
+            <div class="flex justify-between text-sm font-semibold text-danu-goldlight pt-1 border-t border-danu-gold/10"><span>Total</span><span>{{ currency }} {{ "%.2f"|format(subtotal + proposed_fee) }}</span></div>
+          </div>
+
+          <div class="flex gap-3">
+            <button type="button" @click="step = 2" class="btn-outline-luxury border rounded-full px-6 py-3.5 text-sm uppercase tracking-widest">
+              Back
+            </button>
+            <button type="submit" class="btn-luxury flex-1 rounded-full py-3.5 text-sm uppercase tracking-widest">
+              {{ t('checkout.place_order') }}
+            </button>
+          </div>
+        </div>
+
+      </form>
+    </div>
+
+    <!-- ===== Order Summary (desktop sticky sidebar) ===== -->
+    <div class="lg:col-span-2 hidden lg:block">
       <div class="glass rounded-2xl p-6 sm:p-8 sticky top-24">
         <h3 class="font-serif text-xl text-danu-goldlight mb-5">{{ t('checkout.order_summary') }}</h3>
 
@@ -209,7 +270,22 @@
         </div>
       </div>
     </div>
+
+    <!-- Mobile sticky total bar -->
+    <div class="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-danu-charcoal/95 backdrop-blur border-t border-danu-gold/20 px-5 py-3 flex items-center justify-between">
+      <span class="text-xs text-danu-cream/60">{{ t('checkout.total') }}</span>
+      <span class="font-serif text-lg text-gold-gradient">{{ currency }} {{ "%.2f"|format(subtotal + proposed_fee) }}</span>
+    </div>
+    <div class="lg:hidden h-16"></div>
   </div>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function checkoutWizard() {
+    return { step: 1 };
+  }
+</script>
 {% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Log In — Danu Perfume &amp; Cosmo{% endblock %}
+
+{% block content %}
+<div class="min-h-[75vh] flex items-center justify-center px-5 py-10">
+  <div class="glass rounded-2xl p-8 sm:p-10 w-full max-w-md animate__animated animate__fadeInUp">
+    <div class="text-center mb-8">
+      <span class="font-serif text-2xl tracking-wide text-gold-gradient font-semibold">Welcome Back</span>
+      <p class="text-xs text-danu-cream/50 mt-2">Log in to view your saved details and order history.</p>
+    </div>
+
+    <form method="POST" class="space-y-5">
+      <div>
+        <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Username</label>
+        <input type="text" name="username" required autofocus
+               class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+      </div>
+
+      <div>
+        <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Password</label>
+        <input type="password" name="password" required
+               class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+      </div>
+
+      <button type="submit" class="btn-luxury w-full rounded-full py-3 text-sm uppercase tracking-widest">
+        Log In
+      </button>
+    </form>
+
+    <p class="text-center text-xs text-danu-cream/50 mt-6">
+      New here? <a href="{{ url_for('customer_register') }}" class="text-danu-gold hover:underline">Create an account</a>
+    </p>
+    <p class="text-center text-xs text-danu-cream/40 mt-2">
+      <a href="{{ url_for('index') }}" class="hover:text-danu-gold">&larr; Back to shop</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

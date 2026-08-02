@@ -13,7 +13,6 @@
 
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: 6rem;
 }
 
 body {
@@ -21,47 +20,6 @@ body {
   background-color: var(--danu-black);
   color: var(--danu-cream);
   overflow-x: hidden;
-  font-size: 16px;
-  line-height: 1.7;
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-}
-
-p, li, label, span, button {
-  line-height: 1.7;
-}
-
-input, select, textarea, button {
-  font-size: 16px;
-  min-height: 44px;
-}
-
-select {
-  background-image: linear-gradient(45deg, transparent 50%, var(--danu-gold) 50%), linear-gradient(135deg, var(--danu-gold) 50%, transparent 50%);
-  background-position: calc(100% - 20px) calc(50% - 2px), calc(100% - 14px) calc(50% - 2px);
-  background-size: 6px 6px, 6px 6px;
-  background-repeat: no-repeat;
-  padding-right: 2.5rem;
-}
-
-@media (max-width: 640px) {
-  .glass-nav {
-    padding-inline: 0.75rem;
-  }
-
-  .btn-luxury, .btn-outline-luxury {
-    min-height: 46px;
-    padding-inline: 1rem;
-  }
-
-  section {
-    padding-top: 4rem;
-    padding-bottom: 4rem;
-  }
-
-  .glass, .glass-card {
-    border-radius: 1.25rem;
-  }
 }
 
 .font-serif-lux {

@@ -50,12 +50,42 @@ class User(UserMixin, db.Model):
     def check_password(self, raw_password: str) -> bool:
         return check_password_hash(self.password_hash, raw_password)
 
+    def get_id(self):
+        # Prefixed so Flask-Login's user_loader can tell admin sessions apart
+        # from customer sessions sharing the same login system.
+        return f"admin-{self.id}"
+
     @property
     def is_super_admin(self):
-        return (self.role or self.ROLE_SUPER_ADMIN) == self.ROLE_SUPER_ADMIN
+        return self.role == self.ROLE_SUPER_ADMIN
 
     def __repr__(self):
         return f"<User {self.username} ({self.role})>"
+
+
+class Customer(UserMixin, db.Model):
+    """A registered storefront customer (optional account on top of guest checkout)."""
+
+    __tablename__ = "customers"
+
+    id = db.Column(db.Integer, primary_key=True)
+    full_name = db.Column(db.String(120), nullable=False)
+    username = db.Column(db.String(60), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    phone = db.Column(db.String(30), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def set_password(self, raw_password: str) -> None:
+        self.password_hash = generate_password_hash(raw_password)
+
+    def check_password(self, raw_password: str) -> bool:
+        return check_password_hash(self.password_hash, raw_password)
+
+    def get_id(self):
+        return f"customer-{self.id}"
+
+    def __repr__(self):
+        return f"<Customer {self.username}>"
 
 
 class ActivityLog(db.Model):
@@ -212,6 +242,29 @@ class StockAlert(db.Model):
         return f"<StockAlert product_id={self.product_id} phone={self.phone}>"
 
 
+class PostOffice(db.Model):
+    """
+    An Ethiopian Postal Service (or other pickup point) branch, used for the
+    searchable post-office picker at checkout. Backed by the database (rather
+    than a hardcoded list) so an admin can bulk-import the full official branch
+    directory (1000+ locations) via CSV.
+    """
+
+    __tablename__ = "post_offices"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False, index=True)
+    city = db.Column(db.String(100), nullable=False, index=True)
+    region = db.Column(db.String(100), nullable=True)
+    postal_code = db.Column(db.String(20), nullable=True)
+    address = db.Column(db.String(255), nullable=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<PostOffice {self.name} ({self.city})>"
+
+
 class Bank(db.Model):
     """
     An admin-managed payment account (bank or mobile-money provider such as
@@ -342,6 +395,7 @@ class Order(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     order_code = db.Column(db.String(20), unique=True, nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey("customers.id"), nullable=True)
 
     # Guest customer information
     customer_name = db.Column(db.String(150), nullable=False)

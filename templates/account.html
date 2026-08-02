@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}My Account — Danu Perfume &amp; Cosmo{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-5 sm:px-8 py-12">
+  <div class="glass rounded-2xl p-6 sm:p-8 mb-8 flex items-center justify-between flex-wrap gap-4">
+    <div>
+      <h1 class="font-serif text-2xl text-gold-gradient">{{ current_user.full_name }}</h1>
+      <p class="text-xs text-danu-cream/50 mt-1">@{{ current_user.username }}{% if current_user.phone %} · {{ current_user.phone }}{% endif %}</p>
+    </div>
+    <a href="{{ url_for('customer_logout') }}" class="text-xs px-4 py-2 rounded-full border border-red-500/40 text-red-400 hover:bg-red-500/10">Log Out</a>
+  </div>
+
+  <h3 class="font-serif text-xl text-danu-goldlight mb-4">Order History</h3>
+  <div class="space-y-3">
+    {% for o in orders %}
+    <a href="{{ url_for('track_order') }}" class="glass-card rounded-xl p-4 flex items-center justify-between gap-3 block">
+      <div>
+        <p class="text-sm text-danu-goldlight">{{ o.order_code }}</p>
+        <p class="text-xs text-danu-cream/50">{{ o.created_at.strftime('%d %b %Y') }}</p>
+      </div>
+      <div class="text-right">
+        <p class="text-sm">{{ currency }} {{ "%.2f"|format(o.total_amount) }}</p>
+        <span class="text-xs px-2 py-1 rounded-full
+          {% if o.status == 'Pending' %}badge-pending{% elif o.status == 'Approved' %}badge-approved
+          {% elif o.status == 'Out for Delivery' %}badge-delivery{% elif o.status == 'Delivered' %}badge-delivered
+          {% else %}badge-cancelled{% endif %}">{{ o.status }}</span>
+      </div>
+    </a>
+    {% else %}
+    <div class="glass rounded-2xl p-8 text-center text-danu-cream/50">
+      No orders yet. <a href="{{ url_for('index') }}#shop" class="text-danu-gold hover:underline">Start shopping</a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
