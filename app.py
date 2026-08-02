@@ -7,15 +7,21 @@ auto-detect the app factory pattern. Production servers should use:
   gunicorn app:app  (or wsgi:app)
 """
 
+import os
+import sys
+
+# Ensure project root is in path
+project_root = os.path.dirname(os.path.abspath(__file__))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 from wsgi import app, create_app
-from tests.app import create_app as _create_app
 
-# Make sure both the app instance and factory are available at module level
-# This supports both:
-# - gunicorn app:app (uses app instance directly)
-# - gunicorn app:create_app (uses factory pattern)
+# Ensure template and static folders are correct (fix for templates not found error)
+app.template_folder = os.path.join(project_root, 'templates')
+app.static_folder = os.path.join(project_root, 'static')
+app.static_url_path = '/static'
 
-__all__ = ['app', 'create_app']
-
+# Make sure the app is available at module level
 if __name__ == "__main__":
     app.run()
