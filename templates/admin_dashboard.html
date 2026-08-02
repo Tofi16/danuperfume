@@ -192,7 +192,7 @@
             {% for p in products %}
             <tr class="admin-row border-b border-danu-gold/5">
               <td class="px-5 py-3">
-                <img src="{{ p.image_filename and url_for('static', filename='uploads/' + p.image_filename) or 'https://placehold.co/48x48/17161a/c9a24b?text=D' }}"
+                <img src="{{ p.image_filename and media_url(p.image_filename) or 'https://placehold.co/48x48/17161a/c9a24b?text=D' }}"
                      class="w-10 h-10 rounded-lg object-cover">
               </td>
               <td class="px-5 py-3">{{ p.name }}</td>
@@ -302,7 +302,7 @@
         <div>
           <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('admin.products.image') }} (Cover)</label>
           {% if product and product.image_filename %}
-          <img src="{{ url_for('static', filename='uploads/' + product.image_filename) }}" class="w-20 h-20 rounded-lg object-cover mb-3">
+          <img src="{{ media_url(product.image_filename) }}" class="w-20 h-20 rounded-lg object-cover mb-3">
           {% endif %}
           <input type="file" name="image" accept="image/png, image/jpeg, image/webp, image/gif"
                  class="w-full text-sm text-danu-cream/70 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-danu-gold/15 file:text-danu-goldlight">
@@ -315,7 +315,7 @@
           <div class="flex flex-wrap gap-3 mb-3">
             {% for img in product.gallery_images %}
             <div class="relative">
-              <img src="{{ url_for('static', filename='uploads/' + img.filename) }}" class="w-16 h-16 rounded-lg object-cover">
+              <img src="{{ media_url(img.filename) }}" class="w-16 h-16 rounded-lg object-cover">
               <form method="POST" action="{{ url_for('admin_product_gallery_delete', image_id=img.id) }}" class="absolute -top-2 -right-2">
                 <button type="submit" class="w-5 h-5 bg-red-500 text-white rounded-full text-xs leading-none">&times;</button>
               </form>
@@ -462,8 +462,8 @@
           <div class="glass rounded-2xl p-6">
             <h3 class="font-serif text-lg text-danu-goldlight mb-4">{{ t('admin.orders.receipt') }} ({{ order.payment_method }}{% if order.bank %} — {{ order.bank.bank_name }}{% endif %})</h3>
             {% if order.payment_screenshot %}
-            <a href="{{ url_for('static', filename='uploads/' + order.payment_screenshot) }}" target="_blank">
-              <img src="{{ url_for('static', filename='uploads/' + order.payment_screenshot) }}"
+            <a href="{{ media_url(order.payment_screenshot) }}" target="_blank">
+              <img src="{{ media_url(order.payment_screenshot) }}"
                    class="max-w-full sm:max-w-sm rounded-xl border border-danu-gold/20 hover:opacity-90 transition-opacity">
             </a>
             {% else %}
@@ -830,7 +830,7 @@
         {% for b in banners %}
         <div class="glass-card rounded-xl p-4 flex items-center justify-between gap-4">
           <div class="flex items-center gap-3">
-            {% if b.image_filename %}<img src="{{ url_for('static', filename='uploads/' + b.image_filename) }}" class="w-14 h-14 rounded-lg object-cover">{% endif %}
+            {% if b.image_filename %}<img src="{{ media_url(b.image_filename) }}" class="w-14 h-14 rounded-lg object-cover">{% endif %}
             <div>
               <p class="text-sm font-medium">{{ b.title }}</p>
               <p class="text-xs text-danu-cream/50">{{ b.subtitle }}</p>
@@ -960,7 +960,7 @@
         <div>
           <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Logo (optional)</label>
           {% if bank and bank.logo_filename %}
-          <img src="{{ url_for('static', filename='uploads/' + bank.logo_filename) }}" class="w-14 h-14 rounded-lg object-cover mb-3">
+          <img src="{{ media_url(bank.logo_filename) }}" class="w-14 h-14 rounded-lg object-cover mb-3">
           {% endif %}
           <input type="file" name="logo" accept="image/png, image/jpeg, image/webp"
                  class="w-full text-sm text-danu-cream/70 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-danu-gold/15 file:text-danu-goldlight">

@@ -35,6 +35,12 @@ class Config:
     MAX_CONTENT_LENGTH = MAX_UPLOAD_MB * 1024 * 1024
     ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "gif"}
 
+    # --- Cloudinary media storage (optional) ---
+    CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL")
+    CLOUDINARY_CLOUD_NAME = os.environ.get("CLOUDINARY_CLOUD_NAME")
+    CLOUDINARY_API_KEY = os.environ.get("CLOUDINARY_API_KEY")
+    CLOUDINARY_API_SECRET = os.environ.get("CLOUDINARY_API_SECRET")
+
     # --- Default Admin Accounts (created automatically on first run) ---
     # Each tuple: (username, full_name, password, role)
     # role: "super_admin" (full access) or "order_manager" (orders/delivery only)

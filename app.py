@@ -32,6 +32,9 @@ from flask import (
 from flask_login import (
     LoginManager, login_user, logout_user, login_required, current_user
 )
+from cloudinary import config as cloudinary_config
+from cloudinary.uploader import upload as cloudinary_upload
+from cloudinary.utils import cloudinary_url
 from werkzeug.utils import secure_filename
 from sqlalchemy import func, inspect, text
 
@@ -78,6 +81,15 @@ def create_app(env_name=None):
 
     env_name = env_name or os.environ.get("FLASK_ENV", "production")
     app.config.from_object(config_by_name.get(env_name, config_by_name["production"]))
+
+    if app.config.get("CLOUDINARY_URL"):
+        cloudinary_config(cloudinary_url=app.config["CLOUDINARY_URL"])
+    elif app.config.get("CLOUDINARY_CLOUD_NAME") and app.config.get("CLOUDINARY_API_KEY") and app.config.get("CLOUDINARY_API_SECRET"):
+        cloudinary_config(
+            cloud_name=app.config["CLOUDINARY_CLOUD_NAME"],
+            api_key=app.config["CLOUDINARY_API_KEY"],
+            api_secret=app.config["CLOUDINARY_API_SECRET"],
+        )
 
     # --- Initialize extensions ---
     db.init_app(app)
@@ -142,6 +154,7 @@ def create_app(env_name=None):
             fx_rates=app.config["FX_RATES"],
             now=datetime.utcnow(),
             active_banner=active_banner,
+            media_url=media_url,
         )
 
     # =========================================================
@@ -155,14 +168,22 @@ def create_app(env_name=None):
 
     def save_uploaded_file(file_storage, subfolder=""):
         """
-        Safely saves an uploaded file with a randomized, secure filename.
-        Returns the relative filename (to store in the DB) or None if invalid.
+        Saves an uploaded file and returns either a local relative path or a Cloudinary URL.
         """
         if not file_storage or file_storage.filename == "":
             return None
 
         if not allowed_file(file_storage.filename):
             return None
+
+        if app.config.get("CLOUDINARY_URL") or (
+            app.config.get("CLOUDINARY_CLOUD_NAME") and
+            app.config.get("CLOUDINARY_API_KEY") and
+            app.config.get("CLOUDINARY_API_SECRET")
+        ):
+            cloud_url = upload_to_cloudinary(file_storage, folder=f"danu_perfume/{subfolder}" if subfolder else "danu_perfume")
+            if cloud_url:
+                return cloud_url
 
         original_name = secure_filename(file_storage.filename)
         extension = original_name.rsplit(".", 1)[1].lower()
@@ -174,6 +195,42 @@ def create_app(env_name=None):
         file_storage.save(os.path.join(target_dir, unique_name))
 
         return f"{subfolder}/{unique_name}" if subfolder else unique_name
+
+    def upload_to_cloudinary(file_storage, folder="danu_perfume"):
+        """
+        Uploads a file to Cloudinary if configured, otherwise returns None.
+        """
+        if not file_storage or not (
+            app.config.get("CLOUDINARY_URL") or (
+                app.config.get("CLOUDINARY_CLOUD_NAME") and
+                app.config.get("CLOUDINARY_API_KEY") and
+                app.config.get("CLOUDINARY_API_SECRET")
+            )
+        ):
+            return None
+
+        try:
+            result = cloudinary_upload(
+                file_storage,
+                folder=folder,
+                use_filename=True,
+                unique_filename=True,
+                overwrite=False,
+            )
+            return result.get("secure_url")
+        except Exception:
+            return None
+
+    def media_url(path_or_url):
+        """
+        Returns a correct public URL for a stored media asset.
+        If the value already looks like a complete URL, return it as-is.
+        """
+        if not path_or_url:
+            return None
+        if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
+            return path_or_url
+        return url_for("static", filename=f"uploads/{path_or_url}")
 
     def generate_order_code():
         return "DP-" + uuid.uuid4().hex[:8].upper()
@@ -340,8 +397,8 @@ def create_app(env_name=None):
                 "effective_price": float(p.effective_price),
                 "stock": p.stock,
                 "volume_ml": p.volume_ml,
-                "image_url": url_for("static", filename=f"uploads/{p.image_filename}") if p.image_filename else None,
-                "gallery": [url_for("static", filename=f"uploads/{img.filename}") for img in p.gallery_images],
+                "image_url": media_url(p.image_filename) if p.image_filename else None,
+                "gallery": [media_url(img.filename) for img in p.gallery_images],
                 "category": p.category.name if p.category else None,
                 "category_slug": p.category.slug if p.category else None,
                 "top_notes": p.top_notes_list,
@@ -365,8 +422,8 @@ def create_app(env_name=None):
             "price": float(p.price),
             "effective_price": float(p.effective_price),
             "volume_ml": p.volume_ml,
-            "image_url": url_for("static", filename=f"uploads/{p.image_filename}") if p.image_filename else None,
-            "gallery": [url_for("static", filename=f"uploads/{img.filename}") for img in p.gallery_images],
+            "image_url": media_url(p.image_filename) if p.image_filename else None,
+            "gallery": [media_url(img.filename) for img in p.gallery_images],
             "top_notes": p.top_notes_list,
             "heart_notes": p.heart_notes_list,
             "base_notes": p.base_notes_list,
@@ -444,7 +501,7 @@ def create_app(env_name=None):
                 "price": float(product.effective_price),
                 "quantity": qty,
                 "subtotal": float(subtotal),
-                "image_url": url_for("static", filename=f"uploads/{product.image_filename}") if product.image_filename else None,
+                "image_url": media_url(product.image_filename) if product.image_filename else None,
                 "stock": product.stock,
             })
         return jsonify({"items": items, "total": float(total)})
