@@ -74,7 +74,18 @@ SEED_POST_OFFICES = [
 
 def create_app(env_name=None):
     """Application factory."""
-    app = Flask(__name__)
+    # Calculate correct template and static folder paths
+    # tests/app.py is in tests/ directory, but we need project root which is 1 level up
+    tests_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(tests_dir)
+    template_folder = os.path.join(project_root, 'templates')
+    static_folder = os.path.join(project_root, 'static')
+    
+    # Create app with explicit paths to avoid Flask using tests/ as root_path
+    app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
+    print(f"[CREATE_APP] Project root: {project_root}", flush=True)
+    print(f"[CREATE_APP] Template folder: {template_folder}", flush=True)
+    print(f"[CREATE_APP] Static folder: {static_folder}", flush=True)
 
     env_name = env_name or os.environ.get("FLASK_ENV", "production")
     app.config.from_object(config_by_name.get(env_name, config_by_name["production"]))
