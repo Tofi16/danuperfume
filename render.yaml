@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: danu-perfume
+    env: python
+    plan: free
+    branch: main
+    
+    # Build configuration
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT app:app --workers 3 --timeout 120
+    
+    # Environment variables
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_APP
+        value: app.py
+      - key: PYTHONUNBUFFERED
+        value: true
+    
+    # Database connection (set via Render dashboard)
+    # DATABASE_URL, SECRET_KEY, ADMIN_PASSWORD_DANUTA, ADMIN_PASSWORD_TOFIK
+    # should be set as environment variables in the Render dashboard
+    
+    # Disk for uploads
+    disk:
+      - name: uploads
+        mountPath: /opt/render/project/src/static/uploads
+        sizeGB: 1

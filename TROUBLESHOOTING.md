@@ -2,7 +2,41 @@
 
 ## Common Deployment Errors and Fixes
 
-### 1. ModuleNotFoundError: No module named 'tests'
+### 1. Render: ModuleNotFoundError: No module named 'app'
+
+**Error:**
+```
+ModuleNotFoundError: No module named 'app'
+Exited with status 1 while running your code
+Gunicorn: Running 'gunicorn "app.create_app()"'
+```
+
+**Cause:** Render couldn't find the app entry point.
+
+**Fix:**
+1. Ensure you have the latest files:
+   - `app.py` ← Compatibility entry point
+   - `render.yaml` ← Render configuration
+   - Updated `Procfile` with explicit command
+
+2. Push changes:
+   ```bash
+   git add .
+   git commit -m "Fix Render deployment"
+   git push origin main
+   ```
+
+3. In Render dashboard:
+   - Click 3-dot menu → Redeploy
+   - Wait 2-3 minutes for deployment
+
+4. Check logs in Render dashboard → Logs tab
+
+5. For detailed Render setup, see: `RENDER_DEPLOYMENT.md`
+
+---
+
+### 2. ModuleNotFoundError: No module named 'tests'
 
 **Error:**
 ```
@@ -12,13 +46,13 @@ ModuleNotFoundError: No module named 'tests'
 **Cause:** The main application is in `tests/app.py` but Python cannot import it.
 
 **Fix:**
-- Use `wsgi.py` as the entry point (already configured)
-- Ensure `sys.path.insert(0, os.path.dirname(...))` is in wsgi.py
-- For Heroku/Render, make sure `Procfile` points to `wsgi:app`
+- Use `app.py` at project root (now available)
+- Procfile uses: `gunicorn app:app`
+- Both `wsgi.py` and `app.py` are compatible entry points
 
 ---
 
-### 2. No module named 'dotenv'
+### 3. No module named 'dotenv'
 
 **Error:**
 ```
@@ -33,7 +67,7 @@ pip install -r requirements.txt
 
 ---
 
-### 3. DatabaseError: Could not connect to server
+### 4. DatabaseError: Could not connect to server
 
 **Error:**
 ```
