@@ -1778,11 +1778,21 @@ def create_app(env_name=None):
         try:
             db.create_all()
             _ensure_schema(app)
+
+            if Category.query.count() == 0:
+                db.session.add_all([
+                    Category(name="Women", slug="women"),
+                    Category(name="Men", slug="men"),
+                    Category(name="Unisex", slug="unisex"),
+                    Category(name="Oud & Attar", slug="oud-attar"),
+                ])
+                db.session.commit()
+
             missing_admin = any(
-                not User.query.filter_by(username=u).first()
+                not User.query.filter(func.lower(User.username) == u.lower()).first()
                 for u, _, _, _ in app.config["ADMIN_ACCOUNTS"]
             )
-            if missing_admin or Bank.query.count() == 0:
+            if missing_admin or Bank.query.count() == 0 or DeliveryZone.query.count() == 0 or PostOffice.query.count() == 0:
                 _init_db(app)
         except Exception as exc:  # noqa: BLE001
             print(f"[Danu Perfume] Startup DB check skipped: {exc}")
