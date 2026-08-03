@@ -327,14 +327,19 @@ def create_app(env_name=None):
         account = LoyaltyAccount.query.filter_by(phone=phone).first()
         if not account:
             account = LoyaltyAccount(
-                phone=phone, customer_name=customer_name,
+                phone=phone,
+                customer_name=customer_name,
                 referral_code=("DANU" + uuid.uuid4().hex[:6].upper()),
+                points=0,
+                total_spent=0,
             )
             db.session.add(account)
 
         points = int((float(amount_spent) / 100) * app.config["LOYALTY_POINTS_PER_100_ETB"])
-        account.points += points
-        account.total_spent = (account.total_spent or 0) + amount_spent
+        current_points = account.points or 0
+        current_spent = account.total_spent or 0
+        account.points = current_points + points
+        account.total_spent = current_spent + amount_spent
         account.customer_name = customer_name
         return points
 
