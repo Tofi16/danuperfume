@@ -825,15 +825,13 @@ def create_app(env_name=None):
     @app.route("/login", methods=["GET", "POST"])
     def customer_login():
         if current_user.is_authenticated:
+            if isinstance(current_user, User):
+                return redirect(url_for("admin_dashboard"))
             return redirect(url_for("customer_account"))
 
         if request.method == "POST":
             username = request.form.get("username", "").strip()
             password = request.form.get("password", "")
-
-            if _username_is_reserved(username):
-                flash("That username is reserved for the admin account.", "warning")
-                return render_template("customer_login.html")
 
             user = User.query.filter(func.lower(User.username) == username.lower()).first()
             if user and user.check_password(password):
@@ -841,7 +839,7 @@ def create_app(env_name=None):
                 log_activity("auth.login", f"{username} logged in")
                 flash("Welcome back!", "success")
                 next_page = request.args.get("next")
-                return redirect(next_page or url_for("customer_account"))
+                return redirect(next_page or url_for("admin_dashboard"))
 
             customer = Customer.query.filter(func.lower(Customer.username) == username.lower()).first()
             if customer and customer.check_password(password):
@@ -1736,10 +1734,16 @@ def create_app(env_name=None):
             _ensure_schema(flask_app)
 
             for username, full_name, password, role in flask_app.config["ADMIN_ACCOUNTS"]:
-                if not User.query.filter_by(username=username).first():
+                admin = User.query.filter(func.lower(User.username) == username.lower()).first()
+                if not admin:
                     admin = User(full_name=full_name, username=username, role=role, is_admin=True)
-                    admin.set_password(password)
                     db.session.add(admin)
+
+                admin.full_name = full_name
+                admin.username = username
+                admin.role = role
+                admin.is_admin = True
+                admin.set_password(password)
 
             if Category.query.count() == 0:
                 default_categories = [

@@ -33,6 +33,21 @@ class AuthTemplateRegressionTest(unittest.TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.headers["Location"], "/account")
 
+    def test_reserved_admin_username_can_login(self):
+        user = User(username="Danuta", full_name="Danuta", email="danuta@example.com", role="super_admin", is_admin=True)
+        user.set_password("#Danu1122")
+        db.session.add(user)
+        db.session.commit()
+
+        response = self.client.post(
+            "/login",
+            data={"username": "Danuta", "password": "#Danu1122"},
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.headers["Location"], "/account")
+
     def test_non_admin_usernames_are_not_reserved_for_customer_accounts(self):
         user = User(username="staff-user", full_name="Staff User", email="staff-user@example.com", role="order_manager", is_admin=True)
         user.set_password("secret123")
