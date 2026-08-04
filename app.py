@@ -21,6 +21,7 @@ import io
 import os
 import random
 import uuid
+import requests
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import wraps
@@ -42,7 +43,7 @@ from config import config_by_name
 from models import (
     db, User, Customer, ActivityLog, Category, Product, ProductImage, Review, StockAlert,
     Bank, DeliveryZone, Coupon, LoyaltyAccount, Banner, PostOffice, Order, OrderItem,
-    OrderIssueReport,
+    OrderIssueReport, AppSetting,
 )
 from translations import TRANSLATIONS, get_text
 
@@ -146,6 +147,12 @@ def create_app(env_name=None):
         except Exception:  # noqa: BLE001
             pass  # table may not exist yet on a fresh, un-migrated DB
 
+        support_telegram_username = None
+        try:
+            support_telegram_username = get_setting("telegram_support_username")
+        except Exception:  # noqa: BLE001
+            pass
+
         return dict(
             t=t,
             current_lang=current_lang,
@@ -156,6 +163,7 @@ def create_app(env_name=None):
             now=datetime.utcnow(),
             active_banner=active_banner,
             media_url=media_url,
+            support_telegram_username=support_telegram_username,
         )
 
     # =========================================================
@@ -252,6 +260,62 @@ def create_app(env_name=None):
             if zone:
                 return zone.fee
         return roll_delivery_fee()
+
+    # =========================================================
+    # App Settings (key/value) + Telegram notifications
+    # =========================================================
+    # The bot token lives here as a fallback default so the feature works out
+    # of the box; for production it's safer to override it with a
+    # TELEGRAM_BOT_TOKEN environment variable instead of editing this file.
+    TELEGRAM_BOT_TOKEN = os.environ.get(
+        "TELEGRAM_BOT_TOKEN", "8979485168:AAHeb6GMvtKmENfvAuQrM9YWtMjdevGpng8"
+    )
+
+    def get_setting(key, default=None):
+        try:
+            row = db.session.get(AppSetting, key)
+            return row.value if row and row.value else default
+        except Exception:  # noqa: BLE001
+            return default
+
+    def set_setting(key, value):
+        row = db.session.get(AppSetting, key)
+        if row:
+            row.value = value
+        else:
+            row = AppSetting(key=key, value=value)
+            db.session.add(row)
+        db.session.commit()
+
+    def send_telegram_message(text):
+        """Fire-and-forget message to the admin's configured Telegram chat.
+        Never raises — a Telegram outage must not block checkout or any
+        other request that triggers a notification."""
+        chat_id = get_setting("telegram_chat_id")
+        if not chat_id or not TELEGRAM_BOT_TOKEN:
+            return False
+        try:
+            resp = requests.post(
+                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
+                timeout=6,
+            )
+            return resp.ok
+        except Exception:  # noqa: BLE001
+            return False
+
+    def notify_new_order_telegram(order):
+        lines = [
+            "🛍️ <b>New Order — Danu Perfume &amp; Cosmo</b>",
+            f"Order: <b>{order.order_code}</b>",
+            f"Customer: {order.customer_name} ({order.customer_phone})",
+            f"City: {order.city or '—'}",
+            f"Delivery: {order.delivery_type}",
+            f"Total: {order.total_amount} ETB",
+        ]
+        if order.risk_level and order.risk_level != "Low Risk":
+            lines.append(f"⚠️ Risk: {order.risk_level}")
+        send_telegram_message("\n".join(lines))
 
     # =========================================================
     # Activity log + RBAC helpers
@@ -864,6 +928,10 @@ def create_app(env_name=None):
                 applied_coupon.used_count += 1
 
             db.session.commit()
+            try:
+                notify_new_order_telegram(new_order)
+            except Exception:  # noqa: BLE001
+                pass  # a notification failure must never break checkout
             save_cart({})
             session.pop("checkout_delivery_fee", None)
 
@@ -1087,6 +1155,34 @@ def create_app(env_name=None):
     def admin_activity_log():
         logs = ActivityLog.query.order_by(ActivityLog.created_at.desc()).limit(200).all()
         return render_template("admin_dashboard.html", view="activity_log", logs=logs)
+
+    # --- Settings (Telegram order notifications + public support username) ---
+    @app.route("/admin/settings", methods=["GET", "POST"])
+    @super_admin_required
+    def admin_settings():
+        if request.method == "POST":
+            chat_id = request.form.get("telegram_chat_id", "").strip()
+            support_username = request.form.get("telegram_support_username", "").strip().lstrip("@")
+            set_setting("telegram_chat_id", chat_id)
+            set_setting("telegram_support_username", support_username)
+            log_activity("settings.update", "Telegram settings updated")
+            flash("Settings saved.", "success")
+            return redirect(url_for("admin_settings"))
+
+        return render_template(
+            "admin_dashboard.html", view="settings",
+            telegram_chat_id=get_setting("telegram_chat_id", ""),
+            telegram_support_username=get_setting("telegram_support_username", ""),
+        )
+
+    @app.route("/admin/settings/telegram-test", methods=["POST"])
+    @super_admin_required
+    def admin_settings_telegram_test():
+        ok = send_telegram_message("✅ Danu Perfume & Cosmo — test notification. Your Telegram alerts are working.")
+        flash("Test message sent — check Telegram." if ok else
+              "Couldn't send the test message. Double-check the Chat ID and that you've messaged the bot at least once.",
+              "success" if ok else "error")
+        return redirect(url_for("admin_settings"))
 
     # --- Product CRUD ---
     @app.route("/admin/products")

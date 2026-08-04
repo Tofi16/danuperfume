@@ -210,6 +210,21 @@ class ProductImage(db.Model):
         return f"<ProductImage product_id={self.product_id}>"
 
 
+class AppSetting(db.Model):
+    """Simple key/value store for admin-configurable settings that don't need
+    their own dedicated table — e.g. the Telegram notification chat ID and the
+    public support Telegram username shown to customers."""
+
+    __tablename__ = "app_settings"
+
+    key = db.Column(db.String(100), primary_key=True)
+    value = db.Column(db.Text, nullable=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<AppSetting {self.key}>"
+
+
 class Review(db.Model):
     """A customer's star rating and comment on a Product.
 

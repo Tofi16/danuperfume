@@ -196,25 +196,6 @@ main {
   animation: heroDrift 18s ease-in-out infinite alternate;
 }
 
-.hero-media {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  transform: scale(1.03);
-  filter: saturate(1.08) contrast(1.05) brightness(0.82);
-}
-
-.hero-content-panel {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.05));
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(203, 178, 106, 0.22);
-  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.35);
-}
-
 @keyframes heroDrift {
   0%   { background-position: 0% 0%; }
   100% { background-position: 100% 100%; }

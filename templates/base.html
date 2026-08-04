@@ -241,8 +241,14 @@
     <div class="fade-up">
       <h5 class="text-danu-goldlight text-sm uppercase tracking-widest mb-3">Contact</h5>
       <p class="text-sm text-danu-cream/60">Addis Ababa, Betel Solfam Mall</p>
-      <p class="text-sm text-danu-cream/60">Email: danuperfumee@gmail.com</p>
-      <p class="text-sm text-danu-cream/60">Phone: +251944655901</p>
+      <p class="text-sm text-danu-cream/60">hello@danuperfume.com</p>
+      {% if support_telegram_username %}
+      <a href="https://t.me/{{ support_telegram_username }}" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-1.5 text-sm text-danu-gold hover:text-danu-goldlight mt-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71l-4.14-3.06-2 1.93c-.23.23-.42.42-.82.42z"/></svg>
+        Support on Telegram
+      </a>
+      {% endif %}
     </div>
   </div>
   <div class="border-t border-danu-gold/10 py-5 text-center text-xs text-danu-cream/40">

@@ -83,6 +83,10 @@
              class="block px-3 py-2 rounded-lg {% if view == 'activity_log' %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
             Activity Log
           </a>
+          <a href="{{ url_for('admin_settings') }}"
+             class="block px-3 py-2 rounded-lg {% if view == 'settings' %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
+            Settings
+          </a>
           {% endif %}
           <a href="{{ url_for('admin_logout') }}" class="block px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 mt-4">
             {{ t('admin.nav.logout') }}
@@ -597,6 +601,43 @@
             {% endfor %}
           </tbody>
         </table>
+      </div>
+
+      {% elif view == 'settings' %}
+      <!-- ================= SETTINGS — TELEGRAM ================= -->
+      <h1 class="font-serif text-3xl text-gold-gradient mb-8">Settings</h1>
+
+      <div class="glass rounded-2xl p-6 sm:p-8 max-w-xl">
+        <h3 class="font-serif text-lg text-danu-goldlight mb-2">Telegram Notifications</h3>
+        <p class="text-xs text-danu-cream/50 mb-5">
+          New orders will be sent automatically to this Telegram chat. To find your Chat ID,
+          message your bot once on Telegram, then visit
+          <code class="text-danu-gold">https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> and copy the
+          <code class="text-danu-gold">chat.id</code> value.
+        </p>
+        <form method="POST" class="space-y-4">
+          <div>
+            <label class="text-xs uppercase tracking-widest text-danu-gold mb-1 block">Telegram Chat ID (receives order alerts)</label>
+            <input type="text" name="telegram_chat_id" value="{{ telegram_chat_id }}" placeholder="e.g. 123456789"
+                   class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
+          </div>
+          <div>
+            <label class="text-xs uppercase tracking-widest text-danu-gold mb-1 block">Support Telegram Username (shown to customers)</label>
+            <div class="flex items-center gap-2">
+              <span class="text-danu-cream/40">@</span>
+              <input type="text" name="telegram_support_username" value="{{ telegram_support_username }}" placeholder="DanuSupport"
+                     class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
+            </div>
+          </div>
+          <div class="flex gap-3 pt-2">
+            <button type="submit" class="btn-luxury rounded-full px-6 py-2.5 text-xs uppercase tracking-widest">Save Settings</button>
+          </div>
+        </form>
+        <form method="POST" action="{{ url_for('admin_settings_telegram_test') }}" class="mt-3">
+          <button type="submit" class="text-xs px-4 py-2 rounded-full border border-danu-gold/30 text-danu-gold hover:bg-danu-gold/10">
+            Send Test Message
+          </button>
+        </form>
       </div>
 
       {% elif view == 'products_import' %}
