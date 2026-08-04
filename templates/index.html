@@ -88,9 +88,9 @@
       <template x-for="product in products" :key="product.id">
         <div class="glass-card rounded-2xl overflow-hidden flex flex-col">
           <div class="product-img-wrap relative">
-            <img :src="product.image_url || 'https://placehold.co/400x400/17161a/c9a24b?text=Danu+Perfume'"
+            <img :src="product.image_url || 'https://placehold.co/400x400/241329/cbb26a?text=Danu+Perfume'"
                  :alt="product.name" class="w-full h-56 object-cover">
-            <span x-show="product.discount_price" class="absolute top-3 left-3 bg-danu-gold text-danu-black text-[0.65rem] font-bold px-2 py-1 rounded-full uppercase">Sale</span>
+            <span x-show="product.discount_price" class="badge-sale absolute top-3 left-3 bg-danu-gold text-danu-black text-[0.65rem] font-bold px-2 py-1 rounded-full uppercase">Sale</span>
             <span x-show="product.stock === 0" class="absolute inset-0 bg-black/60 flex items-center justify-center text-xs uppercase tracking-widest text-white">
               {{ t('shop.out_of_stock') }}
             </span>
@@ -99,15 +99,15 @@
             <p class="text-xs text-danu-gold/70 uppercase tracking-widest mb-1" x-text="product.category"></p>
             <h3 class="font-serif text-lg text-danu-cream mb-1" x-text="product.name"></h3>
             <p class="text-xs text-danu-cream/50 mb-1" x-text="product.brand"></p>
-            <div class="flex items-center gap-1 mb-2" x-show="product.review_count > 0">
-              <span class="text-danu-gold text-xs" x-text="'★'.repeat(Math.round(product.average_rating)) + '☆'.repeat(5 - Math.round(product.average_rating))"></span>
+            <div class="flex items-center gap-1 mb-2 animate__animated animate__fadeIn" x-show="product.review_count > 0">
+              <span class="text-danu-gold text-xs tracking-wider" x-text="'★'.repeat(Math.round(product.average_rating)) + '☆'.repeat(5 - Math.round(product.average_rating))"></span>
               <span class="text-xs text-danu-cream/40" x-text="'(' + product.review_count + ')'"></span>
             </div>
 
             <div class="mt-auto">
               <div class="flex items-center gap-2 mb-1">
                 <span class="text-danu-goldlight font-semibold" x-text="'{{ currency }} ' + product.effective_price"></span>
-                <span x-show="product.discount_price" class="text-xs text-danu-cream/40 line-through" x-text="'{{ currency }} ' + product.price"></span>
+                <span x-show="product.discount_price" class="price-strike text-xs text-danu-cream/40" x-text="'{{ currency }} ' + product.price"></span>
               </div>
               <p class="text-[0.65rem] text-danu-cream/30 mb-3" x-text="'≈ $' + (product.effective_price * {{ fx_rates.USD }}).toFixed(2) + ' USD'"></p>
 
@@ -133,9 +133,12 @@
       </template>
     </div>
 
-    <p x-show="!loading && products.length === 0" class="text-center text-danu-cream/50 py-16">
-      No perfumes match your filters.
-    </p>
+    <div x-show="!loading && products.length === 0" class="empty-state text-center py-16">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-14 w-14 mx-auto mb-4 text-danu-gold/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6l1 3h2a1 1 0 011 1v1H5V7a1 1 0 011-1h2l1-3zM8 10h8l1 10.2a1 1 0 01-1 1.1H8a1 1 0 01-1-1.1L8 10z" />
+      </svg>
+      <p class="text-danu-cream/50">No perfumes match your filters.</p>
+    </div>
   </section>
 
   <!-- ============ ABOUT ============ -->
@@ -161,7 +164,7 @@
 
       <template x-if="activeProduct">
         <div>
-          <img :src="activeProduct.image_url || 'https://placehold.co/400x400/17161a/c9a24b?text=Danu'" class="w-24 h-24 object-cover rounded-xl mx-auto mb-3">
+          <img :src="activeProduct.image_url || 'https://placehold.co/400x400/241329/cbb26a?text=Danu'" class="w-24 h-24 object-cover rounded-xl mx-auto mb-3">
           <div class="flex justify-center gap-2 mb-4" x-show="activeProduct.gallery && activeProduct.gallery.length">
             <template x-for="img in (activeProduct.gallery || [])" :key="img">
               <img :src="img" class="w-10 h-10 object-cover rounded-lg border border-danu-gold/20">
@@ -205,28 +208,112 @@
           <!-- Reviews -->
           <div class="mt-6 pt-5 border-t border-danu-gold/15" x-show="activeProduct.reviews && activeProduct.reviews.length">
             <p class="text-xs uppercase tracking-widest text-danu-gold mb-3">Customer Reviews</p>
-            <div class="space-y-2 max-h-32 overflow-y-auto">
+            <div class="space-y-3 max-h-48 overflow-y-auto pr-1">
               <template x-for="r in (activeProduct.reviews || [])" :key="r.customer_name + r.rating">
-                <div class="text-xs">
-                  <span class="text-danu-goldlight" x-text="'★'.repeat(r.rating) + '☆'.repeat(5 - r.rating)"></span>
-                  <span class="text-danu-cream/70" x-text="' ' + r.customer_name + ': ' + (r.comment || '')"></span>
+                <div class="text-xs border-b border-danu-gold/10 pb-2 last:border-0">
+                  <div class="flex items-start gap-2">
+                    <img x-show="r.photo_url" :src="r.photo_url" class="w-10 h-10 rounded-lg object-cover shrink-0">
+                    <div>
+                      <span class="text-danu-goldlight" x-text="'★'.repeat(r.rating) + '☆'.repeat(5 - r.rating)"></span>
+                      <span class="text-danu-cream/70" x-text="' ' + r.customer_name + ': ' + (r.comment || '')"></span>
+                      <p class="text-[0.65rem] text-danu-cream/40 mt-0.5" x-show="r.longevity_rating || r.scent_match_rating || r.packaging_rating">
+                        <span x-show="r.longevity_rating" x-text="'Longevity ' + r.longevity_rating + '/5  '"></span>
+                        <span x-show="r.scent_match_rating" x-text="'· Scent Match ' + r.scent_match_rating + '/5  '"></span>
+                        <span x-show="r.packaging_rating" x-text="'· Packaging ' + r.packaging_rating + '/5'"></span>
+                      </p>
+                      <p class="text-[0.7rem] text-danu-gold/80 mt-1 pl-2 border-l border-danu-gold/30" x-show="r.admin_reply" x-text="'↳ ' + r.admin_reply"></p>
+                    </div>
+                  </div>
                 </div>
               </template>
             </div>
           </div>
 
-          <div class="mt-6 pt-5 border-t border-danu-gold/15" x-data="{ name: '', rating: 5, comment: '', sent: false }">
+          <div class="mt-6 pt-5 border-t border-danu-gold/15"
+               x-data="{ name: '', phone: '', rating: 5, longevity: 0, scentMatch: 0, packaging: 0, delivery: 0, comment: '', photo: null, sent: false, err: '', sending: false, bonusPoints: 0 }">
             <p class="text-xs uppercase tracking-widest text-danu-gold mb-3">Leave a Review</p>
             <div x-show="!sent" class="space-y-2">
               <input type="text" x-model="name" placeholder="Your name" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
+              <input type="tel" x-model="phone" placeholder="Phone (optional — earn loyalty points)" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
               <select x-model.number="rating" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
-                <option value="5">★★★★★</option><option value="4">★★★★☆</option><option value="3">★★★☆☆</option><option value="2">★★☆☆☆</option><option value="1">★☆☆☆☆</option>
+                <option value="5">★★★★★ Overall</option><option value="4">★★★★☆ Overall</option><option value="3">★★★☆☆ Overall</option><option value="2">★★☆☆☆ Overall</option><option value="1">★☆☆☆☆ Overall</option>
               </select>
-              <textarea x-model="comment" rows="2" placeholder="Your comment (optional)" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold"></textarea>
-              <button @click="fetch('/api/product/' + activeProduct.id + '/review', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({customer_name: name, rating, comment}) }).then(() => sent = true)"
-                      class="btn-outline-luxury border w-full rounded-full py-2 text-xs uppercase tracking-widest">Submit Review</button>
+
+              <!-- Scent-specific sub-ratings (Rule 2) -->
+              <div class="grid grid-cols-3 gap-2 pt-1">
+                <div>
+                  <label class="text-[0.6rem] text-danu-cream/50 uppercase tracking-wide">Longevity</label>
+                  <select x-model.number="longevity" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-danu-gold">
+                    <option value="0">—</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-[0.6rem] text-danu-cream/50 uppercase tracking-wide">Scent Match</label>
+                  <select x-model.number="scentMatch" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-danu-gold">
+                    <option value="0">—</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-[0.6rem] text-danu-cream/50 uppercase tracking-wide">Packaging</label>
+                  <select x-model.number="packaging" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-danu-gold">
+                    <option value="0">—</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Delivery experience, rated separately from the product (Rule 7) -->
+              <div>
+                <label class="text-[0.6rem] text-danu-cream/50 uppercase tracking-wide">Delivery Experience (optional)</label>
+                <select x-model.number="delivery" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-danu-gold">
+                  <option value="0">—</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option>
+                </select>
+              </div>
+
+              <textarea x-model="comment" rows="2" placeholder="Tell us about the scent, longevity, packaging…" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold"></textarea>
+              <p class="text-[0.65rem]" :class="comment.length >= 15 ? 'text-danu-gold/60' : 'text-danu-cream/40'">
+                <span x-text="comment.length"></span>/15 characters minimum
+              </p>
+
+              <!-- Optional verified-purchase photo (Rule 3) -->
+              <div>
+                <label class="text-[0.6rem] text-danu-cream/50 uppercase tracking-wide">Photo of the product (optional)</label>
+                <input type="file" accept="image/png, image/jpeg, image/webp" @change="photo = $event.target.files[0]"
+                       class="w-full text-xs text-danu-cream/60 file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:bg-danu-gold/15 file:text-danu-goldlight">
+              </div>
+
+              <p x-show="err" x-text="err" class="text-xs text-red-400"></p>
+              <button
+                @click="
+                  if (comment.trim().length < 15) { err = 'Please share a few more words (at least 15 characters).'; return; }
+                  if (!name.trim()) { err = 'Please enter your name.'; return; }
+                  err = ''; sending = true;
+                  const fd = new FormData();
+                  fd.append('customer_name', name); fd.append('customer_phone', phone);
+                  fd.append('rating', rating); fd.append('comment', comment);
+                  if (longevity) fd.append('longevity_rating', longevity);
+                  if (scentMatch) fd.append('scent_match_rating', scentMatch);
+                  if (packaging) fd.append('packaging_rating', packaging);
+                  if (delivery) fd.append('delivery_rating', delivery);
+                  if (photo) fd.append('photo', photo);
+                  fetch('/api/product/' + activeProduct.id + '/review', { method: 'POST', body: fd })
+                    .then(r => r.json())
+                    .then(res => { sending = false; if (res.error) { err = res.error; } else { sent = true; bonusPoints = res.bonus_points || 0; if (window.danuToast) danuToast('Review submitted ✓'); } })
+                "
+                :disabled="comment.trim().length < 15 || sending"
+                :class="(comment.trim().length < 15 || sending) ? 'opacity-40 cursor-not-allowed' : ''"
+                class="btn-outline-luxury border w-full rounded-full py-2 text-xs uppercase tracking-widest transition-opacity">
+                <span x-show="!sending">Submit Review</span>
+                <span x-show="sending">Sending…</span>
+              </button>
             </div>
-            <p x-show="sent" class="text-xs text-green-400">Thank you! Your review is pending approval.</p>
+            <div x-show="sent" x-cloak class="text-center py-4 animate__animated animate__fadeIn">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto mb-2 text-danu-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p class="text-sm text-gold-gradient font-serif">Thank you for your feedback</p>
+              <p class="text-xs text-danu-cream/50 mt-1" x-show="!bonusPoints">Your review is pending approval and will appear soon.</p>
+              <p class="text-xs text-danu-goldlight mt-1" x-show="bonusPoints">You've earned <span x-text="bonusPoints"></span> loyalty points. Your review is pending approval.</p>
+            </div>
           </div>
 
           <button @click="notesModalOpen = false" class="btn-outline-luxury border rounded-full w-full py-2.5 mt-6 text-sm uppercase tracking-widest">

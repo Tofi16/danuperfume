@@ -5,12 +5,39 @@
 {% block content %}
 <div class="max-w-3xl mx-auto px-5 sm:px-8 py-12">
   <div class="glass rounded-2xl p-6 sm:p-8 mb-8 flex items-center justify-between flex-wrap gap-4">
-    <div>
-      <h1 class="font-serif text-2xl text-gold-gradient">{{ current_user.full_name }}</h1>
-      <p class="text-xs text-danu-cream/50 mt-1">@{{ current_user.username }}{% if current_user.phone %} · {{ current_user.phone }}{% endif %}</p>
+    <div class="flex items-center gap-4">
+      <div class="avatar-badge">{{ current_user.full_name[0]|upper if current_user.full_name else '?' }}</div>
+      <div>
+        <h1 class="font-serif text-2xl text-gold-gradient">{{ current_user.full_name }}</h1>
+        <p class="text-xs text-danu-cream/50 mt-1">@{{ current_user.username }}{% if current_user.phone %} · {{ current_user.phone }}{% endif %}</p>
+      </div>
     </div>
     <a href="{{ url_for('customer_logout') }}" class="text-xs px-4 py-2 rounded-full border border-red-500/40 text-red-400 hover:bg-red-500/10">Log Out</a>
   </div>
+
+  {% if loyalty %}
+  <div class="glass rounded-2xl p-6 sm:p-8 mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-serif text-lg text-danu-goldlight">Loyalty Points</h3>
+      <span class="text-sm text-danu-gold font-semibold">{{ loyalty.points }} pts</span>
+    </div>
+    <div class="loyalty-track">
+      <div class="loyalty-fill" id="loyaltyFill" data-target="{{ loyalty_progress }}" style="width: 0%"></div>
+    </div>
+    <p class="text-xs text-danu-cream/50 mt-2">{{ loyalty_remaining }} more points to your next reward tier.</p>
+  </div>
+  {% endif %}
+
+  {% set delivered_orders = orders | selectattr('status', 'equalto', 'Delivered') | list %}
+  {% if delivered_orders %}
+  <div class="glass rounded-2xl p-5 sm:p-6 mb-8 flex items-center justify-between flex-wrap gap-3 border border-danu-gold/20">
+    <div>
+      <p class="text-sm text-danu-goldlight font-serif">How was your fragrance?</p>
+      <p class="text-xs text-danu-cream/50 mt-1">Your order has been delivered — share a review and earn loyalty points.</p>
+    </div>
+    <a href="{{ url_for('index') }}#shop" class="btn-luxury rounded-full px-5 py-2 text-xs uppercase tracking-widest whitespace-nowrap">Leave a Review</a>
+  </div>
+  {% endif %}
 
   <h3 class="font-serif text-xl text-danu-goldlight mb-4">Order History</h3>
   <div class="space-y-3">
@@ -29,10 +56,24 @@
       </div>
     </a>
     {% else %}
-    <div class="glass rounded-2xl p-8 text-center text-danu-cream/50">
-      No orders yet. <a href="{{ url_for('index') }}#shop" class="text-danu-gold hover:underline">Start shopping</a>
+    <div class="glass rounded-2xl p-10 text-center empty-state">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-14 w-14 mx-auto mb-4 text-danu-gold/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6l1 3h2a1 1 0 011 1v1H5V7a1 1 0 011-1h2l1-3zM8 10h8l1 10.2a1 1 0 01-1 1.1H8a1 1 0 01-1-1.1L8 10z" />
+      </svg>
+      <p class="text-danu-cream/50">No orders yet. <a href="{{ url_for('index') }}#shop" class="text-danu-gold hover:underline">Start shopping</a></p>
     </div>
     {% endfor %}
   </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const fill = document.getElementById("loyaltyFill");
+    if (fill) {
+      requestAnimationFrame(() => { fill.style.width = fill.dataset.target + "%"; });
+    }
+  });
+</script>
 {% endblock %}

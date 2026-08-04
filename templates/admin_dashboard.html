@@ -45,6 +45,10 @@
              class="block px-3 py-2 rounded-lg {% if view == 'reviews' %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
             Reviews
           </a>
+          <a href="{{ url_for('admin_issue_reports') }}"
+             class="block px-3 py-2 rounded-lg {% if view == 'issue_reports' %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
+            Issue Reports
+          </a>
           <a href="{{ url_for('admin_stock_alerts') }}"
              class="block px-3 py-2 rounded-lg {% if view == 'stock_alerts' %}bg-danu-gold/15 text-danu-goldlight{% else %}text-danu-cream/70 hover:bg-danu-gold/5{% endif %}">
             Stock Alerts
@@ -100,30 +104,40 @@
             <p class="text-xs text-danu-cream/50 uppercase tracking-widest">{{ t('admin.dashboard.total_orders') }}</p>
             <span class="text-danu-gold/60">📦</span>
           </div>
-          <p class="font-serif text-3xl text-danu-goldlight">{{ total_orders }}</p>
+          <p class="font-serif text-3xl text-danu-goldlight" id="statTotalOrders" data-value="{{ total_orders }}">0</p>
         </div>
         <div class="glass-card rounded-2xl p-5">
           <div class="flex items-center justify-between mb-2">
             <p class="text-xs text-danu-cream/50 uppercase tracking-widest">{{ t('admin.dashboard.total_sales') }}</p>
             <span class="text-danu-gold/60">💰</span>
           </div>
-          <p class="font-serif text-3xl text-danu-goldlight">{{ currency }} {{ "%.2f"|format(total_sales) }}</p>
+          <p class="font-serif text-3xl text-danu-goldlight" id="statTotalSales" data-value="{{ total_sales }}" data-prefix="{{ currency }} ">{{ currency }} 0.00</p>
         </div>
         <div class="glass-card rounded-2xl p-5">
           <div class="flex items-center justify-between mb-2">
             <p class="text-xs text-danu-cream/50 uppercase tracking-widest">{{ t('admin.dashboard.pending_orders') }}</p>
             <span class="text-danu-gold/60">⏳</span>
           </div>
-          <p class="font-serif text-3xl text-danu-goldlight">{{ pending_orders }}</p>
+          <p class="font-serif text-3xl text-danu-goldlight" id="statPendingOrders" data-value="{{ pending_orders }}">0</p>
         </div>
         <div class="glass-card rounded-2xl p-5">
           <div class="flex items-center justify-between mb-2">
             <p class="text-xs text-danu-cream/50 uppercase tracking-widest">{{ t('admin.dashboard.total_products') }}</p>
             <span class="text-danu-gold/60">🧴</span>
           </div>
-          <p class="font-serif text-3xl text-danu-goldlight">{{ total_products }}</p>
+          <p class="font-serif text-3xl text-danu-goldlight" id="statTotalProducts" data-value="{{ total_products }}">0</p>
         </div>
       </div>
+
+      <script>
+        document.addEventListener("DOMContentLoaded", () => {
+          if (!window.danuCountUp) return;
+          danuCountUp(document.getElementById("statTotalOrders"), {{ total_orders }});
+          danuCountUp(document.getElementById("statTotalSales"), {{ total_sales }}, 1200, "{{ currency }} ");
+          danuCountUp(document.getElementById("statPendingOrders"), {{ pending_orders }});
+          danuCountUp(document.getElementById("statTotalProducts"), {{ total_products }});
+        });
+      </script>
 
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -192,7 +206,7 @@
             {% for p in products %}
             <tr class="admin-row border-b border-danu-gold/5">
               <td class="px-5 py-3">
-                <img src="{{ p.image_filename and media_url(p.image_filename) or 'https://placehold.co/48x48/17161a/c9a24b?text=D' }}"
+                <img src="{{ p.image_filename and media_url(p.image_filename) or 'https://placehold.co/48x48/241329/cbb26a?text=D' }}"
                      class="w-10 h-10 rounded-lg object-cover">
               </td>
               <td class="px-5 py-3">{{ p.name }}</td>
@@ -415,7 +429,19 @@
           <a href="{{ url_for('admin_order_invoice', order_id=order.id) }}" target="_blank" class="btn-outline-luxury border rounded-full px-4 py-1.5 text-xs uppercase tracking-widest">Invoice</a>
         </div>
       </div>
-      {% if order.risk_reasons %}<p class="text-xs text-danu-cream/50 mb-6">Risk flags: {{ order.risk_reasons }}</p>{% else %}<div class="mb-6"></div>{% endif %}
+      {% if order.risk_reasons %}<p class="text-xs text-danu-cream/50 mb-6">Risk flags: {{ order.risk_reasons }}</p>{% else %}<div class="mb-4"></div>{% endif %}
+
+      {% set order_steps = ['Pending', 'Approved', 'Out for Delivery', 'Delivered'] %}
+      {% if order.status in order_steps %}
+      <div class="status-timeline mb-8 text-xs max-w-md">
+        {% for step in order_steps %}
+        <div class="status-step {% if order_steps.index(order.status) >= loop.index0 %}done{% endif %}">
+          <div class="dot"></div>
+          <span class="{% if order_steps.index(order.status) >= loop.index0 %}text-danu-goldlight{% else %}text-danu-cream/40{% endif %}">{{ step }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2 space-y-6">
@@ -542,7 +568,7 @@
         fetch("{{ url_for('admin_analytics_data') }}").then(r => r.json()).then(data => {
           new Chart(document.getElementById('salesChart'), {
             type: 'line',
-            data: { labels: data.labels, datasets: [{ label: 'Sales (ETB)', data: data.sales, borderColor: '#c9a24b', backgroundColor: 'rgba(201,162,75,0.15)', fill: true, tension: 0.35 }] },
+            data: { labels: data.labels, datasets: [{ label: 'Sales (ETB)', data: data.sales, borderColor: '#cbb26a', backgroundColor: 'rgba(203,178,106,0.15)', fill: true, tension: 0.35 }] },
             options: { plugins: { legend: { labels: { color: '#f7f3ec' } } }, scales: { x: { ticks: { color: '#f7f3ec99' } }, y: { ticks: { color: '#f7f3ec99' } } } }
           });
           document.getElementById('topProductsList').innerHTML = data.top_products.map(p => `<li class="flex justify-between"><span>${p.name}</span><span class="text-danu-goldlight">${p.qty} sold</span></li>`).join('') || '<li>No sales yet.</li>';
@@ -594,10 +620,23 @@
       <h3 class="font-serif text-lg text-danu-goldlight mb-4">Pending Approval ({{ pending|length }})</h3>
       <div class="space-y-3 mb-10">
         {% for r in pending %}
-        <div class="glass-card rounded-xl p-4 flex items-center justify-between gap-4">
-          <div>
-            <p class="text-sm">{{ r.customer_name }} — {{ '★' * r.rating }}{{ '☆' * (5 - r.rating) }} on <span class="text-danu-goldlight">{{ r.product.name }}</span></p>
-            <p class="text-xs text-danu-cream/60 mt-1">{{ r.comment }}</p>
+        <div class="glass-card rounded-xl p-4 flex items-start justify-between gap-4">
+          <div class="flex gap-3">
+            {% if r.photo_filename %}
+            <img src="{{ media_url(r.photo_filename) }}" class="w-14 h-14 rounded-lg object-cover shrink-0">
+            {% endif %}
+            <div>
+              <p class="text-sm">{{ r.customer_name }} — {{ '★' * r.rating }}{{ '☆' * (5 - r.rating) }} on <span class="text-danu-goldlight">{{ r.product.name }}</span></p>
+              <p class="text-xs text-danu-cream/60 mt-1">{{ r.comment }}</p>
+              {% if r.longevity_rating or r.scent_match_rating or r.packaging_rating or r.delivery_rating %}
+              <p class="text-[0.65rem] text-danu-cream/40 mt-1">
+                {% if r.longevity_rating %}Longevity {{ r.longevity_rating }}/5 &nbsp;{% endif %}
+                {% if r.scent_match_rating %}· Scent Match {{ r.scent_match_rating }}/5 &nbsp;{% endif %}
+                {% if r.packaging_rating %}· Packaging {{ r.packaging_rating }}/5 &nbsp;{% endif %}
+                {% if r.delivery_rating %}· Delivery {{ r.delivery_rating }}/5{% endif %}
+              </p>
+              {% endif %}
+            </div>
           </div>
           <div class="flex gap-2 shrink-0">
             <form method="POST" action="{{ url_for('admin_review_approve', review_id=r.id) }}"><button class="text-xs px-3 py-1.5 rounded-full border border-green-500/40 text-green-400">Approve</button></form>
@@ -611,15 +650,81 @@
       <h3 class="font-serif text-lg text-danu-goldlight mb-4">Published</h3>
       <div class="space-y-3">
         {% for r in approved %}
-        <div class="glass-card rounded-xl p-4 flex items-center justify-between gap-4">
-          <div>
-            <p class="text-sm">{{ r.customer_name }} — {{ '★' * r.rating }}{{ '☆' * (5 - r.rating) }} on <span class="text-danu-goldlight">{{ r.product.name }}</span></p>
-            <p class="text-xs text-danu-cream/60 mt-1">{{ r.comment }}</p>
+        <div class="glass-card rounded-xl p-4">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex gap-3">
+              {% if r.photo_filename %}
+              <img src="{{ media_url(r.photo_filename) }}" class="w-14 h-14 rounded-lg object-cover shrink-0">
+              {% endif %}
+              <div>
+                <p class="text-sm">{{ r.customer_name }} — {{ '★' * r.rating }}{{ '☆' * (5 - r.rating) }} on <span class="text-danu-goldlight">{{ r.product.name }}</span></p>
+                <p class="text-xs text-danu-cream/60 mt-1">{{ r.comment }}</p>
+                {% if r.longevity_rating or r.scent_match_rating or r.packaging_rating or r.delivery_rating %}
+                <p class="text-[0.65rem] text-danu-cream/40 mt-1">
+                  {% if r.longevity_rating %}Longevity {{ r.longevity_rating }}/5 &nbsp;{% endif %}
+                  {% if r.scent_match_rating %}· Scent Match {{ r.scent_match_rating }}/5 &nbsp;{% endif %}
+                  {% if r.packaging_rating %}· Packaging {{ r.packaging_rating }}/5 &nbsp;{% endif %}
+                  {% if r.delivery_rating %}· Delivery {{ r.delivery_rating }}/5{% endif %}
+                </p>
+                {% endif %}
+                {% if r.admin_reply %}
+                <p class="text-xs text-danu-gold/80 mt-2 pl-3 border-l border-danu-gold/30">↳ {{ r.admin_reply }}</p>
+                {% endif %}
+              </div>
+            </div>
+            <form method="POST" action="{{ url_for('admin_review_delete', review_id=r.id) }}"><button class="text-xs px-3 py-1.5 rounded-full border border-red-500/40 text-red-400 shrink-0">Delete</button></form>
           </div>
-          <form method="POST" action="{{ url_for('admin_review_delete', review_id=r.id) }}"><button class="text-xs px-3 py-1.5 rounded-full border border-red-500/40 text-red-400 shrink-0">Delete</button></form>
+          <form method="POST" action="{{ url_for('admin_review_reply', review_id=r.id) }}" class="flex gap-2 mt-3 pt-3 border-t border-danu-gold/10">
+            <input type="text" name="admin_reply" value="{{ r.admin_reply or '' }}" placeholder="Reply publicly as Danu Perfume…"
+                   class="flex-1 bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-danu-gold">
+            <button type="submit" class="text-xs px-4 py-2 rounded-full btn-outline-luxury border whitespace-nowrap">{{ 'Update Reply' if r.admin_reply else 'Reply' }}</button>
+          </form>
         </div>
         {% else %}
         <p class="text-sm text-danu-cream/40">No published reviews yet.</p>
+        {% endfor %}
+      </div>
+
+      {% elif view == 'issue_reports' %}
+      <!-- ================= ORDER ISSUE REPORTS (Rule 8) ================= -->
+      <h1 class="font-serif text-3xl text-gold-gradient mb-8">Issue Reports</h1>
+      <h3 class="font-serif text-lg text-danu-goldlight mb-4">Open ({{ open_reports|length }})</h3>
+      <div class="space-y-3 mb-10">
+        {% for r in open_reports %}
+        <div class="glass-card rounded-xl p-4 flex items-center justify-between gap-4">
+          <div>
+            <p class="text-sm">
+              <span class="text-danu-goldlight">{{ r.order_code }}</span> — {{ r.customer_name or '—' }} · {{ r.customer_phone }}
+              <span class="text-xs px-2 py-0.5 rounded-full badge-pending ml-2">{{ r.issue_type|replace('_',' ')|title }}</span>
+            </p>
+            <p class="text-xs text-danu-cream/60 mt-1">{{ r.description }}</p>
+            <p class="text-[0.65rem] text-danu-cream/30 mt-1">{{ r.created_at.strftime('%d %b %Y, %H:%M') if r.created_at else '' }}</p>
+          </div>
+          <div class="flex gap-2 shrink-0">
+            {% if r.order_id %}
+            <a href="{{ url_for('admin_order_detail', order_id=r.order_id) }}" class="text-xs px-3 py-1.5 rounded-full border border-danu-gold/30 text-danu-gold">View Order</a>
+            {% endif %}
+            <form method="POST" action="{{ url_for('admin_issue_report_resolve', report_id=r.id) }}">
+              <button class="text-xs px-3 py-1.5 rounded-full border border-green-500/40 text-green-400">Mark Resolved</button>
+            </form>
+          </div>
+        </div>
+        {% else %}
+        <p class="text-sm text-danu-cream/40">No open issue reports — all clear.</p>
+        {% endfor %}
+      </div>
+      <h3 class="font-serif text-lg text-danu-goldlight mb-4">Resolved</h3>
+      <div class="space-y-3">
+        {% for r in resolved_reports %}
+        <div class="glass-card rounded-xl p-4 opacity-60">
+          <p class="text-sm">
+            <span class="text-danu-goldlight">{{ r.order_code }}</span> — {{ r.customer_name or '—' }}
+            <span class="text-xs px-2 py-0.5 rounded-full badge-delivered ml-2">{{ r.issue_type|replace('_',' ')|title }}</span>
+          </p>
+          <p class="text-xs text-danu-cream/60 mt-1">{{ r.description }}</p>
+        </div>
+        {% else %}
+        <p class="text-sm text-danu-cream/40">Nothing resolved yet.</p>
         {% endfor %}
       </div>
 

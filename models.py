@@ -211,20 +211,67 @@ class ProductImage(db.Model):
 
 
 class Review(db.Model):
-    """A customer's star rating and comment on a Product."""
+    """A customer's star rating and comment on a Product.
+
+    Extended for the boutique review system:
+      - Rule 2: scent-specific sub-ratings (longevity / scent match / packaging)
+        instead of a single generic star, since perfume feedback isn't one-dimensional.
+      - Rule 3: an optional photo of the delivered product (verified purchase feel).
+      - Rule 6: an admin reply, so the brand can respond publicly under a review.
+      - Rule 7: delivery experience is rated separately from the product itself,
+        since a great perfume with a late rider shouldn't blend into one score.
+    """
 
     __tablename__ = "reviews"
 
     id = db.Column(db.Integer, primary_key=True)
     product_id = db.Column(db.Integer, db.ForeignKey("products.id"), nullable=False)
     customer_name = db.Column(db.String(150), nullable=False)
-    rating = db.Column(db.Integer, nullable=False, default=5)  # 1-5
+    rating = db.Column(db.Integer, nullable=False, default=5)  # 1-5, overall product rating
     comment = db.Column(db.Text, nullable=True)
     is_approved = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Rule 2 — scent-specific sub-ratings (all optional, 1-5)
+    longevity_rating = db.Column(db.Integer, nullable=True)
+    scent_match_rating = db.Column(db.Integer, nullable=True)
+    packaging_rating = db.Column(db.Integer, nullable=True)
+
+    # Rule 7 — delivery/rider experience, kept separate from the product score
+    delivery_rating = db.Column(db.Integer, nullable=True)
+
+    # Rule 3 — optional "verified purchase" photo of the received product
+    photo_filename = db.Column(db.String(255), nullable=True)
+
+    # Rule 6 — admin can publicly reply to a review
+    admin_reply = db.Column(db.Text, nullable=True)
+    admin_reply_at = db.Column(db.DateTime, nullable=True)
+
     def __repr__(self):
         return f"<Review {self.customer_name} {self.rating}*>"
+
+
+class OrderIssueReport(db.Model):
+    """Rule 8: a delivery/order problem report, deliberately separate from the star-review
+    flow so a bad experience routes straight to support instead of only becoming a public
+    low rating with no resolution path."""
+
+    __tablename__ = "order_issue_reports"
+
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey("orders.id"), nullable=True)
+    order_code = db.Column(db.String(20), nullable=False)
+    customer_name = db.Column(db.String(150), nullable=True)
+    customer_phone = db.Column(db.String(30), nullable=False)
+    issue_type = db.Column(db.String(50), nullable=False, default="other")  # damaged, wrong_item, missing, late, other
+    description = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default="Open")  # Open, In Progress, Resolved
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    order = db.relationship("Order", backref="issue_reports")
+
+    def __repr__(self):
+        return f"<OrderIssueReport {self.order_code} {self.issue_type}>"
 
 
 class StockAlert(db.Model):

@@ -42,6 +42,7 @@ from config import config_by_name
 from models import (
     db, User, Customer, ActivityLog, Category, Product, ProductImage, Review, StockAlert,
     Bank, DeliveryZone, Coupon, LoyaltyAccount, Banner, PostOffice, Order, OrderItem,
+    OrderIssueReport,
 )
 from translations import TRANSLATIONS, get_text
 
@@ -343,6 +344,26 @@ def create_app(env_name=None):
         account.customer_name = customer_name
         return points
 
+    def award_review_bonus(phone, customer_name, bonus_points=15):
+        """Flat loyalty bonus for leaving a review (Rule 4: reward feedback).
+        Kept separate from spend-based points since it isn't tied to an order total."""
+        if not phone:
+            return 0
+        account = LoyaltyAccount.query.filter_by(phone=phone).first()
+        if not account:
+            account = LoyaltyAccount(
+                phone=phone,
+                customer_name=customer_name or "Customer",
+                referral_code=("DANU" + uuid.uuid4().hex[:6].upper()),
+                points=0,
+                total_spent=0,
+            )
+            db.session.add(account)
+        account.points = (account.points or 0) + bonus_points
+        if customer_name:
+            account.customer_name = customer_name
+        return bonus_points
+
     # =========================================================
     # Cart helpers (session-based cart, server-side validation on checkout)
     # =========================================================
@@ -434,30 +455,120 @@ def create_app(env_name=None):
             "base_notes": p.base_notes_list,
             "average_rating": p.average_rating,
             "reviews": [
-                {"customer_name": r.customer_name, "rating": r.rating, "comment": r.comment}
+                {
+                    "customer_name": r.customer_name, "rating": r.rating, "comment": r.comment,
+                    "longevity_rating": r.longevity_rating,
+                    "scent_match_rating": r.scent_match_rating,
+                    "packaging_rating": r.packaging_rating,
+                    "delivery_rating": r.delivery_rating,
+                    "photo_url": media_url(r.photo_filename) if r.photo_filename else None,
+                    "admin_reply": r.admin_reply,
+                }
                 for r in p.approved_reviews
             ],
         })
 
     @app.route("/api/product/<int:product_id>/review", methods=["POST"])
     def api_product_review_submit(product_id):
-        """Customers submit a review; it stays hidden until an admin approves it."""
+        """Customers submit a review; it stays hidden until an admin approves it.
+
+        Accepts multipart/form-data so an optional 'verified purchase' photo can
+        travel alongside the text fields (Rule 3). Sub-ratings for longevity,
+        scent match, and packaging are optional (Rule 2); delivery experience is
+        rated separately from the product itself (Rule 7).
+        """
         product = Product.query.get_or_404(product_id)
-        data = request.get_json(silent=True) or {}
+        data = request.form if request.form else (request.get_json(silent=True) or {})
+
         customer_name = (data.get("customer_name") or "").strip()
-        rating = int(data.get("rating", 5))
+        customer_phone = (data.get("customer_phone") or "").strip()
         comment = (data.get("comment") or "").strip()
+
+        def _clean_sub_rating(field):
+            raw = data.get(field)
+            if raw in (None, ""):
+                return None
+            try:
+                value = int(raw)
+            except (TypeError, ValueError):
+                return None
+            return value if 1 <= value <= 5 else None
+
+        try:
+            rating = int(data.get("rating", 5))
+        except (TypeError, ValueError):
+            rating = 5
 
         if not customer_name or rating < 1 or rating > 5:
             return jsonify({"error": "Please provide your name and a rating between 1 and 5."}), 400
 
+        # Rule 5: require a minimum amount of detail so reviews stay useful,
+        # rather than allowing drive-by "good" / "nice" spam entries.
+        if len(comment) < 15:
+            return jsonify({"error": "Please share a few more words about your experience (at least 15 characters)."}), 400
+
+        photo_filename = None
+        photo_file = request.files.get("photo") if request.files else None
+        if photo_file and photo_file.filename:
+            photo_filename = save_uploaded_file(photo_file, subfolder="reviews")
+
         review = Review(
             product_id=product.id, customer_name=customer_name,
             rating=rating, comment=comment, is_approved=False,
+            longevity_rating=_clean_sub_rating("longevity_rating"),
+            scent_match_rating=_clean_sub_rating("scent_match_rating"),
+            packaging_rating=_clean_sub_rating("packaging_rating"),
+            delivery_rating=_clean_sub_rating("delivery_rating"),
+            photo_filename=photo_filename,
         )
         db.session.add(review)
+
+        bonus = 0
+        if customer_phone:
+            # Rule 4: reward feedback with loyalty points, regardless of order total.
+            bonus = award_review_bonus(customer_phone, customer_name)
+
         db.session.commit()
-        return jsonify({"success": True, "message": "Thank you! Your review will appear once approved."})
+
+        message = "Thank you! Your review will appear once approved."
+        if bonus:
+            message += f" You've earned {bonus} loyalty points for sharing your feedback."
+        return jsonify({"success": True, "message": message, "bonus_points": bonus})
+
+    @app.route("/api/report-issue", methods=["POST"])
+    def api_report_issue():
+        """Rule 8: a delivery/order problem report, separate from the star-review flow,
+        so a customer with a real problem reaches support directly instead of only
+        leaving a public low rating with nowhere for it to go."""
+        data = request.get_json(silent=True) or {}
+        order_code = (data.get("order_code") or "").strip().upper()
+        phone = (data.get("phone") or "").strip()
+        issue_type = (data.get("issue_type") or "other").strip()
+        description = (data.get("description") or "").strip()
+
+        if not order_code or not phone:
+            return jsonify({"error": "Please provide your order code and phone number."}), 400
+        if len(description) < 10:
+            return jsonify({"error": "Please describe the issue in a bit more detail (at least 10 characters)."}), 400
+
+        order = Order.query.filter_by(order_code=order_code, customer_phone=phone).first()
+        if not order:
+            return jsonify({"error": "We couldn't find an order matching that code and phone number."}), 404
+
+        report = OrderIssueReport(
+            order_id=order.id,
+            order_code=order.order_code,
+            customer_name=order.customer_name,
+            customer_phone=phone,
+            issue_type=issue_type,
+            description=description,
+            status="Open",
+        )
+        db.session.add(report)
+        db.session.commit()
+        log_activity("issue_report.create", f"{order.order_code} — {issue_type}")
+
+        return jsonify({"success": True, "message": "Thank you — our team will reach out about your order shortly."})
 
     @app.route("/api/product/<int:product_id>/notify-me", methods=["POST"])
     def api_stock_alert_signup(product_id):
@@ -868,9 +979,25 @@ def create_app(env_name=None):
     @login_required
     def customer_account():
         orders = []
+        loyalty = None
+        loyalty_progress = 0
+        loyalty_remaining = 0
         if isinstance(current_user, Customer):
             orders = Order.query.filter_by(customer_id=current_user.id).order_by(Order.created_at.desc()).all()
-        return render_template("account.html", orders=orders)
+            if current_user.phone:
+                loyalty = LoyaltyAccount.query.filter_by(phone=current_user.phone).first()
+                if loyalty:
+                    milestone = 500  # points per reward tier
+                    into_tier = (loyalty.points or 0) % milestone
+                    loyalty_progress = round((into_tier / milestone) * 100, 1)
+                    loyalty_remaining = milestone - into_tier
+        return render_template(
+            "account.html",
+            orders=orders,
+            loyalty=loyalty,
+            loyalty_progress=loyalty_progress,
+            loyalty_remaining=loyalty_remaining,
+        )
 
     # =========================================================
     # ADMIN ROUTES
@@ -1190,6 +1317,40 @@ def create_app(env_name=None):
         db.session.commit()
         flash("Review deleted.", "success")
         return redirect(url_for("admin_reviews"))
+
+    @app.route("/admin/reviews/<int:review_id>/reply", methods=["POST"])
+    @admin_required
+    def admin_review_reply(review_id):
+        """Rule 6: let the brand publicly reply under a published review."""
+        review = Review.query.get_or_404(review_id)
+        reply_text = (request.form.get("admin_reply") or "").strip()
+        review.admin_reply = reply_text or None
+        review.admin_reply_at = datetime.utcnow() if reply_text else None
+        db.session.commit()
+        log_activity("review.reply", f"{review.product.name} by {review.customer_name}")
+        flash("Reply saved.", "success")
+        return redirect(url_for("admin_reviews"))
+
+    # --- Order Issue Reports (Rule 8) ---
+    @app.route("/admin/issue-reports")
+    @admin_required
+    def admin_issue_reports():
+        open_reports = OrderIssueReport.query.filter(OrderIssueReport.status != "Resolved") \
+            .order_by(OrderIssueReport.created_at.desc()).all()
+        resolved_reports = OrderIssueReport.query.filter_by(status="Resolved") \
+            .order_by(OrderIssueReport.created_at.desc()).limit(50).all()
+        return render_template("admin_dashboard.html", view="issue_reports",
+                                open_reports=open_reports, resolved_reports=resolved_reports)
+
+    @app.route("/admin/issue-reports/<int:report_id>/resolve", methods=["POST"])
+    @admin_required
+    def admin_issue_report_resolve(report_id):
+        report = OrderIssueReport.query.get_or_404(report_id)
+        report.status = "Resolved"
+        db.session.commit()
+        log_activity("issue_report.resolve", f"{report.order_code}")
+        flash("Issue marked as resolved.", "success")
+        return redirect(url_for("admin_issue_reports"))
 
     # --- Stock Alerts ---
     @app.route("/admin/stock-alerts")
@@ -1711,6 +1872,7 @@ def create_app(env_name=None):
             all_models = (
                 User, Customer, ActivityLog, Category, Product, ProductImage, Review, StockAlert,
                 Bank, DeliveryZone, Coupon, LoyaltyAccount, Banner, PostOffice, Order, OrderItem,
+                OrderIssueReport,
             )
             for model in all_models:
                 table_name = model.__tablename__

@@ -34,12 +34,12 @@
     </div>
 
     <!-- Progress steps -->
-    <div class="flex items-center justify-between mb-8 text-xs text-danu-cream/50">
+    <div class="status-timeline mb-8 text-xs">
       {% set steps = ['Pending', 'Approved', 'Out for Delivery', 'Delivered'] %}
       {% for step in steps %}
-      <div class="flex-1 text-center relative">
-        <div class="w-3 h-3 rounded-full mx-auto mb-1 {% if steps.index(order.status) >= loop.index0 %}bg-danu-gold{% else %}bg-danu-cream/20{% endif %}"></div>
-        <span class="{% if steps.index(order.status) >= loop.index0 %}text-danu-goldlight{% endif %}">{{ step }}</span>
+      <div class="status-step {% if steps.index(order.status) >= loop.index0 %}done{% endif %}">
+        <div class="dot"></div>
+        <span class="{% if steps.index(order.status) >= loop.index0 %}text-danu-goldlight{% else %}text-danu-cream/40{% endif %}">{{ step }}</span>
       </div>
       {% endfor %}
     </div>
@@ -50,6 +50,45 @@
       {% if order.rider_name %}<p><span class="text-danu-cream/50">Rider:</span> {{ order.rider_name }} ({{ order.rider_phone }})</p>{% endif %}
       <p><span class="text-danu-cream/50">Total:</span> <span class="text-danu-goldlight">{{ currency }} {{ "%.2f"|format(order.total_amount) }}</span></p>
       <p><span class="text-danu-cream/50">Placed:</span> {{ order.created_at.strftime('%d %b %Y, %H:%M') }}</p>
+    </div>
+
+    <!-- Report an Issue — deliberately separate from product reviews (Rule 8) -->
+    <div class="mt-6 pt-5 border-t border-danu-gold/15"
+         x-data="{ open: false, issueType: 'other', description: '', sent: false, err: '', sending: false }">
+      <button type="button" @click="open = !open" class="text-xs px-4 py-2 rounded-full border border-red-500/30 text-red-400 hover:bg-red-500/10">
+        Report a Problem with This Order
+      </button>
+      <div x-show="open" x-cloak class="mt-4 space-y-2">
+        <div x-show="!sent" class="space-y-2">
+          <select x-model="issueType" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
+            <option value="damaged">Item arrived damaged</option>
+            <option value="wrong_item">Wrong item received</option>
+            <option value="missing">Item missing from order</option>
+            <option value="late">Delivery was very late</option>
+            <option value="other">Other</option>
+          </select>
+          <textarea x-model="description" rows="3" placeholder="Describe what happened…"
+                    class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold"></textarea>
+          <p x-show="err" x-text="err" class="text-xs text-red-400"></p>
+          <button type="button"
+                  @click="
+                    if (description.trim().length < 10) { err = 'Please describe the issue in a bit more detail.'; return; }
+                    err = ''; sending = true;
+                    fetch('/api/report-issue', { method: 'POST', headers: {'Content-Type':'application/json'},
+                      body: JSON.stringify({ order_code: '{{ order.order_code }}', phone: '{{ order.customer_phone }}', issue_type: issueType, description }) })
+                      .then(r => r.json())
+                      .then(res => { sending = false; if (res.error) { err = res.error; } else { sent = true; if (window.danuToast) danuToast('Report sent ✓'); } })
+                  "
+                  :disabled="sending"
+                  class="btn-outline-luxury border w-full rounded-full py-2 text-xs uppercase tracking-widest">
+            <span x-show="!sending">Submit Report</span>
+            <span x-show="sending">Sending…</span>
+          </button>
+        </div>
+        <p x-show="sent" x-cloak class="text-xs text-danu-goldlight animate__animated animate__fadeIn">
+          Thank you — our team will reach out about your order shortly.
+        </p>
+      </div>
     </div>
   </div>
   {% endif %}

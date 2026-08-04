@@ -1,19 +1,22 @@
 /* ==========================================================================
-   Danu Perfume — Custom Styling
-   Luxury Glassmorphism, Gold Accents, Smooth Micro-interactions
+   Danu Perfume & Cosmo — Custom Styling
+   Midnight Plum + Champagne Gold — Luxury Glassmorphism, Smooth Micro-interactions
    ========================================================================== */
 
 :root {
-  --danu-gold: #c9a24b;
-  --danu-gold-light: #e6c988;
-  --danu-black: #0b0b0d;
-  --danu-charcoal: #17161a;
-  --danu-cream: #f7f3ec;
+  --danu-gold: #cbb26a;        /* champagne gold */
+  --danu-gold-light: #e9dcb8;  /* pale champagne */
+  --danu-black: #150a19;       /* midnight plum-black */
+  --danu-charcoal: #241329;    /* plum charcoal */
+  --danu-cream: #f6f1ea;
+
+  --danu-plum: #2c1633;        /* secondary plum accent for gradients */
+  --danu-plum-deep: #0e0710;
 
   /* Elevation tokens — consistent shadow depth across cards, modals, nav */
-  --shadow-sm: 0 4px 14px -4px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 12px 32px -8px rgba(0, 0, 0, 0.45);
-  --shadow-gold: 0 12px 32px -10px rgba(201, 162, 75, 0.35);
+  --shadow-sm: 0 4px 14px -4px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 12px 32px -8px rgba(0, 0, 0, 0.55);
+  --shadow-gold: 0 12px 32px -10px rgba(203, 178, 106, 0.35);
 
   /* Motion tokens — one shared easing curve for a cohesive, premium feel */
   --ease-luxury: cubic-bezier(0.22, 1, 0.36, 1);
@@ -123,7 +126,7 @@ main {
 
 /* ---------------- Gold Gradient Text / Buttons ---------------- */
 .text-gold-gradient {
-  background: linear-gradient(120deg, #b98a2f, #f0d38a 45%, #c9a24b 75%, #8a6b23);
+  background: linear-gradient(120deg, #a68a4a, #f2e6c4 45%, #cbb26a 75%, #8a6f3a);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -138,9 +141,9 @@ main {
 .btn-luxury {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(120deg, #9c7a2f, #e6c988, #9c7a2f);
+  background: linear-gradient(120deg, #8a7038, #e9dcb8, #8a7038);
   background-size: 200% auto;
-  color: #0b0b0d;
+  color: #150a19;
   font-weight: 600;
   letter-spacing: 0.05em;
   transition: background-position 0.6s ease, transform 0.3s var(--ease-luxury), box-shadow 0.3s ease;
@@ -162,7 +165,7 @@ main {
 .btn-luxury:hover {
   background-position: right center;
   transform: translateY(-2px);
-  box-shadow: 0 10px 25px -8px rgba(201, 162, 75, 0.55);
+  box-shadow: 0 10px 25px -8px rgba(203, 178, 106, 0.55);
 }
 .btn-luxury:active {
   transform: translateY(0) scale(0.98);
@@ -185,10 +188,10 @@ main {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 20% 20%, rgba(201, 162, 75, 0.18), transparent 45%),
-    radial-gradient(circle at 80% 30%, rgba(201, 162, 75, 0.12), transparent 40%),
-    radial-gradient(circle at 50% 90%, rgba(201, 162, 75, 0.08), transparent 50%),
-    linear-gradient(180deg, #0b0b0d 0%, #121014 60%, #0b0b0d 100%);
+    radial-gradient(circle at 20% 20%, rgba(203, 178, 106, 0.16), transparent 45%),
+    radial-gradient(circle at 80% 30%, rgba(120, 60, 140, 0.22), transparent 40%),
+    radial-gradient(circle at 50% 90%, rgba(203, 178, 106, 0.08), transparent 50%),
+    linear-gradient(180deg, #150a19 0%, #22112a 60%, #150a19 100%);
   background-size: 200% 200%;
   animation: heroDrift 18s ease-in-out infinite alternate;
 }
@@ -201,7 +204,7 @@ main {
 .floating-particle {
   position: absolute;
   border-radius: 9999px;
-  background: radial-gradient(circle, rgba(230, 201, 136, 0.9), rgba(230, 201, 136, 0));
+  background: radial-gradient(circle, rgba(233, 220, 184, 0.9), rgba(233, 220, 184, 0));
   animation: floatUp 12s linear infinite;
   opacity: 0.6;
 }
@@ -240,7 +243,7 @@ main {
   background: var(--danu-black);
 }
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, var(--danu-gold), #8a6b23);
+  background: linear-gradient(180deg, var(--danu-gold), #7d6534);
   border-radius: 999px;
 }
 
@@ -322,3 +325,244 @@ input:focus, textarea:focus, select:focus {
 .badge-delivery { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168,85,247,0.4); }
 .badge-delivered { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.4); }
 .badge-cancelled { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.4); }
+
+/* ==========================================================================
+   Phase 2 additions — logo flourish, toast, cursor, mesh bg, timeline, etc.
+   ========================================================================== */
+
+/* ---------------- Logo mist/spray flourish on hover ---------------- */
+.logo-mark .logo-mist circle {
+  opacity: 0;
+  transform-origin: center;
+}
+.logo-mark:hover .logo-mist circle {
+  animation: logoMist 0.9s var(--ease-luxury) forwards;
+}
+.logo-mark:hover .logo-mist circle:nth-child(2) { animation-delay: 0.08s; }
+.logo-mark:hover .logo-mist circle:nth-child(3) { animation-delay: 0.16s; }
+@keyframes logoMist {
+  0%   { opacity: 0; transform: scale(0.2) translateY(0); }
+  40%  { opacity: 0.85; }
+  100% { opacity: 0; transform: scale(1) translateY(-6px); }
+}
+
+/* ---------------- Ambient plum-gold mesh background (non-hero pages) ---------------- */
+.mesh-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(203, 178, 106, 0.07), transparent 40%),
+    radial-gradient(circle at 85% 15%, rgba(120, 60, 140, 0.14), transparent 45%),
+    radial-gradient(circle at 50% 100%, rgba(203, 178, 106, 0.05), transparent 50%),
+    var(--danu-black);
+  background-size: 180% 180%;
+  animation: heroDrift 26s ease-in-out infinite alternate;
+}
+
+/* ---------------- Custom cursor (desktop / fine-pointer only) ---------------- */
+@media (hover: hover) and (pointer: fine) {
+  .cursor-drop {
+    position: fixed;
+    top: 0; left: 0;
+    width: 18px; height: 18px;
+    border-radius: 50% 50% 50% 0;
+    background: radial-gradient(circle at 35% 30%, var(--danu-gold-light), var(--danu-gold) 70%);
+    transform: translate(-50%, -75%) rotate(-45deg);
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.25s ease, width 0.2s ease, height 0.2s ease;
+    box-shadow: 0 0 12px rgba(203, 178, 106, 0.5);
+  }
+  .cursor-drop.active { opacity: 0.9; }
+  .cursor-drop.pressed { width: 13px; height: 13px; }
+}
+
+/* ---------------- Toast notifications ---------------- */
+.toast-stack {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9998;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 10px;
+  width: calc(100% - 32px);
+  max-width: 360px;
+  pointer-events: none;
+}
+.toast-item {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(36, 19, 41, 0.92);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(203, 178, 106, 0.35);
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 0.8rem;
+  color: var(--danu-gold-light);
+  box-shadow: var(--shadow-gold);
+  animation: toastIn 0.45s var(--ease-luxury) both;
+}
+.toast-item.leaving {
+  animation: toastOut 0.35s ease-in forwards;
+}
+.toast-item .toast-check {
+  width: 18px; height: 18px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--danu-gold);
+  color: var(--danu-black);
+  font-size: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+@keyframes toastIn {
+  0% { opacity: 0; transform: translateY(14px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes toastOut {
+  to { opacity: 0; transform: translateY(-8px) scale(0.95); }
+}
+
+/* ---------------- Cart floating pulse (item just added) ---------------- */
+.cart-bump { animation: cartBump 0.5s var(--ease-luxury); }
+@keyframes cartBump {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.35); }
+  60%  { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+
+/* ---------------- Rating stars pop-in ---------------- */
+.stars-pop span {
+  display: inline-block;
+  opacity: 0;
+  transform: scale(0.4);
+  animation: starPop 0.35s var(--ease-luxury) forwards;
+}
+@keyframes starPop {
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ---------------- Empty state ---------------- */
+.empty-state {
+  opacity: 0;
+  animation: pageFadeIn 0.7s var(--ease-luxury) 0.1s forwards;
+}
+.empty-state svg {
+  animation: floatSlow 4s ease-in-out infinite;
+}
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* ---------------- Avatar initial badge ---------------- */
+.avatar-badge {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Playfair Display', 'Noto Serif Ethiopic', serif;
+  font-size: 1.3rem;
+  color: var(--danu-black);
+  background: linear-gradient(135deg, var(--danu-gold-light), var(--danu-gold));
+  box-shadow: 0 0 0 2px rgba(203,178,106,0.25), var(--shadow-gold);
+  flex-shrink: 0;
+}
+
+/* ---------------- Loyalty progress bar ---------------- */
+.loyalty-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(203, 178, 106, 0.12);
+  overflow: hidden;
+}
+.loyalty-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--danu-gold), var(--danu-gold-light));
+  width: 0%;
+  transition: width 1.1s var(--ease-luxury);
+}
+
+/* ---------------- Order status timeline ---------------- */
+.status-timeline {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.status-step {
+  flex: 1;
+  text-align: center;
+  position: relative;
+}
+.status-step .dot {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  margin: 0 auto 6px;
+  background: rgba(203, 178, 106, 0.15);
+  border: 2px solid rgba(203, 178, 106, 0.35);
+  transition: all 0.4s var(--ease-luxury);
+}
+.status-step.done .dot {
+  background: var(--danu-gold);
+  border-color: var(--danu-gold);
+  box-shadow: 0 0 10px rgba(203, 178, 106, 0.6);
+}
+.status-step::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: -50%;
+  width: 100%;
+  height: 2px;
+  background: rgba(203, 178, 106, 0.2);
+  z-index: -1;
+}
+.status-step:first-child::before { display: none; }
+.status-step.done::before { background: var(--danu-gold); }
+
+/* ---------------- Sale badge shimmer pulse ---------------- */
+.badge-sale {
+  animation: salePulse 2.2s ease-in-out infinite;
+}
+@keyframes salePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(203, 178, 106, 0.35); }
+  50% { box-shadow: 0 0 0 5px rgba(203, 178, 106, 0); }
+}
+
+/* ---------------- Price strikethrough draw ---------------- */
+.price-strike {
+  position: relative;
+  display: inline-block;
+}
+.price-strike::after {
+  content: '';
+  position: absolute;
+  left: 0; top: 50%;
+  width: 0%;
+  height: 1px;
+  background: currentColor;
+  animation: strikeDraw 0.5s ease-out 0.3s forwards;
+}
+@keyframes strikeDraw {
+  to { width: 100%; }
+}
+
+/* ---------------- Menu accordion arrow ---------------- */
+.accordion-arrow {
+  transition: transform 0.35s var(--ease-luxury);
+}
+.accordion-arrow.open {
+  transform: rotate(180deg);
+}
