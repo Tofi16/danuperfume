@@ -610,8 +610,10 @@
       <div class="glass rounded-2xl p-6 sm:p-8 max-w-xl">
         <h3 class="font-serif text-lg text-danu-goldlight mb-2">Telegram Notifications</h3>
         <p class="text-xs text-danu-cream/50 mb-5">
-          New orders will be sent automatically to this Telegram chat. To find your Chat ID,
-          message your bot once on Telegram, then visit
+          New orders (with the payment receipt photo attached) and issue reports are sent
+          automatically to this Telegram chat. Make sure <code class="text-danu-gold">TELEGRAM_BOT_TOKEN</code>
+          is set in your hosting provider's Environment Variables first. To find your Chat ID, message your
+          bot once on Telegram, then visit
           <code class="text-danu-gold">https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> and copy the
           <code class="text-danu-gold">chat.id</code> value.
         </p>

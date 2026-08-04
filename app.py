@@ -264,12 +264,10 @@ def create_app(env_name=None):
     # =========================================================
     # App Settings (key/value) + Telegram notifications
     # =========================================================
-    # The bot token lives here as a fallback default so the feature works out
-    # of the box; for production it's safer to override it with a
-    # TELEGRAM_BOT_TOKEN environment variable instead of editing this file.
-    TELEGRAM_BOT_TOKEN = os.environ.get(
-        "TELEGRAM_BOT_TOKEN", "8979485168:AAHeb6GMvtKmENfvAuQrM9YWtMjdevGpng8"
-    )
+    # SECURITY: never hardcode the bot token here — GitHub's secret scanner will
+    # flag it (and anyone with repo read access could message as your bot).
+    # Set it once in your hosting provider's Environment Variables instead.
+    TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 
     def get_setting(key, default=None):
         try:
@@ -304,6 +302,22 @@ def create_app(env_name=None):
         except Exception:  # noqa: BLE001
             return False
 
+    def send_telegram_photo(photo_url, caption):
+        """Send the payment receipt image alongside the order details, so the
+        admin can verify the transfer without opening the dashboard first."""
+        chat_id = get_setting("telegram_chat_id")
+        if not chat_id or not TELEGRAM_BOT_TOKEN or not photo_url:
+            return False
+        try:
+            resp = requests.post(
+                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto",
+                json={"chat_id": chat_id, "photo": photo_url, "caption": caption, "parse_mode": "HTML"},
+                timeout=8,
+            )
+            return resp.ok
+        except Exception:  # noqa: BLE001
+            return False
+
     def notify_new_order_telegram(order):
         lines = [
             "🛍️ <b>New Order — Danu Perfume &amp; Cosmo</b>",
@@ -315,7 +329,18 @@ def create_app(env_name=None):
         ]
         if order.risk_level and order.risk_level != "Low Risk":
             lines.append(f"⚠️ Risk: {order.risk_level}")
-        send_telegram_message("\n".join(lines))
+        try:
+            lines.append(f'<a href="{url_for("admin_order_detail", order_id=order.id, _external=True)}">Open in Dashboard →</a>')
+        except Exception:  # noqa: BLE001
+            pass  # outside a request context (e.g. a future cron job) — just skip the link
+        message = "\n".join(lines)
+
+        # Attach the payment receipt image when one was uploaded, so the admin
+        # can verify the transfer straight from Telegram.
+        receipt_url = media_url(order.payment_screenshot) if order.payment_screenshot else None
+        if receipt_url and send_telegram_photo(receipt_url, message):
+            return
+        send_telegram_message(message)
 
     # =========================================================
     # Activity log + RBAC helpers
@@ -631,6 +656,17 @@ def create_app(env_name=None):
         db.session.add(report)
         db.session.commit()
         log_activity("issue_report.create", f"{order.order_code} — {issue_type}")
+
+        try:
+            send_telegram_message(
+                "⚠️ <b>Order Issue Reported</b>\n"
+                f"Order: <b>{order.order_code}</b>\n"
+                f"Customer: {order.customer_name} ({phone})\n"
+                f"Type: {issue_type.replace('_', ' ').title()}\n"
+                f"Details: {description}"
+            )
+        except Exception:  # noqa: BLE001
+            pass
 
         return jsonify({"success": True, "message": "Thank you — our team will reach out about your order shortly."})
 
