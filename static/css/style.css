@@ -746,12 +746,20 @@ input:focus, textarea:focus, select:focus {
 html, body {
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
+  touch-action: pan-x pan-y;
   -webkit-text-size-adjust: 100%;
 }
 
 /* Reduce accidental double-tap zoom on interactive controls without disabling zoom globally */
 button, a, input, select, textarea, .btn-luxury {
   touch-action: manipulation;
+}
+
+/* Mobile nav cart button tweaks */
+@media (max-width: 768px) {
+  .mobile-nav-panel button[aria-expanded], .mobile-nav-panel .w-full { text-align: left; }
+  .mobile-nav-panel svg { flex-shrink: 0; }
+  .mobile-nav-panel .w-5 { min-width: 1.25rem; }
 }
 
 /* Mobile navigation panel */
