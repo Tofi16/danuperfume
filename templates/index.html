@@ -4,7 +4,7 @@
 <div x-data="shopPage()" x-init="init()">
 
   <!-- ============ HERO ============ -->
-  <section class="relative min-h-[70vh] sm:min-h-[80vh] flex items-center justify-center overflow-hidden">
+  <section class="home-hero relative min-h-[70vh] sm:min-h-[80vh] flex items-center justify-center overflow-hidden">
     {% if active_banner and active_banner.image_filename %}
     <img src="{{ media_url(active_banner.image_filename) }}" alt="{{ active_banner.title }}" class="hero-media" loading="eager">
     <div class="absolute inset-0 bg-gradient-to-r from-[#140b18]/90 via-[#140b18]/75 to-[#140b18]/45"></div>
@@ -20,7 +20,7 @@
     <div class="floating-particle" style="width:7px;height:7px;left:80%;animation-delay:3s;"></div>
     <div class="floating-particle" style="width:4px;height:4px;left:92%;animation-delay:5s;"></div>
 
-    <div class="relative z-10 text-center px-6 max-w-3xl animate__animated animate__fadeIn">
+    <div class="relative z-10 text-center px-4 sm:px-6 max-w-3xl animate__animated animate__fadeIn">
       <div class="hero-content-panel rounded-[2rem] px-6 py-8 sm:px-10 sm:py-10 shadow-[0_0_0_1px_rgba(203,178,106,0.18),0_20px_60px_rgba(0,0,0,0.45)]">
       <p class="uppercase tracking-[0.3em] sm:tracking-[0.4em] text-[0.65rem] sm:text-sm text-danu-goldlight/80 mb-3 sm:mb-5 animate__animated animate__fadeInDown">
         {{ t('brand.tagline') }}

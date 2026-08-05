@@ -584,3 +584,61 @@ input:focus, textarea:focus, select:focus {
 .accordion-arrow.open {
   transform: rotate(180deg);
 }
+
+/* ---------------- Mobile layout fixes for homepage hero + footer ---------------- */
+@media (max-width: 768px) {
+  .main-shell {
+    overflow: visible;
+    padding-top: 5rem;
+  }
+
+  .home-hero {
+    min-height: auto;
+    padding: 5.5rem 0 3rem;
+    overflow: visible !important;
+  }
+
+  .home-hero .hero-media {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    min-height: 100%;
+    z-index: 0;
+  }
+
+  .home-hero .hero-content-panel {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .home-hero .absolute.bottom-8 {
+    display: none;
+  }
+
+  .floating-particle {
+    display: none;
+  }
+
+  .site-footer {
+    margin-top: 2rem;
+  }
+
+  .site-footer-grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+    padding: 2rem 1rem 1.5rem;
+  }
+
+  .site-footer .fade-up {
+    opacity: 1;
+    transform: none;
+  }
+
+  .site-footer a,
+  .site-footer p {
+    word-break: break-word;
+  }
+}
