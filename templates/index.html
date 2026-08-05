@@ -20,23 +20,23 @@
     <div class="floating-particle" style="width:7px;height:7px;left:80%;animation-delay:3s;"></div>
     <div class="floating-particle" style="width:4px;height:4px;left:92%;animation-delay:5s;"></div>
 
-    <div class="relative z-10 text-center px-4 sm:px-6 max-w-3xl animate__animated animate__fadeIn">
-      <div class="hero-content-panel rounded-[2rem] px-6 py-8 sm:px-10 sm:py-10 shadow-[0_0_0_1px_rgba(203,178,106,0.18),0_20px_60px_rgba(0,0,0,0.45)]">
-      <p class="uppercase tracking-[0.3em] sm:tracking-[0.4em] text-[0.65rem] sm:text-sm text-danu-goldlight/80 mb-3 sm:mb-5 animate__animated animate__fadeInDown">
+    <div class="relative z-10 text-center px-3 sm:px-6 max-w-3xl w-full animate__animated animate__fadeIn">
+      <div class="hero-content-panel rounded-[2rem] px-4 py-5 sm:px-10 sm:py-10 shadow-[0_0_0_1px_rgba(203,178,106,0.18),0_20px_60px_rgba(0,0,0,0.45)] mx-auto w-full max-w-[92vw] sm:max-w-[44rem] box-border">
+      <p class="hero-eyebrow uppercase tracking-[0.3em] sm:tracking-[0.4em] text-[0.65rem] sm:text-sm text-danu-goldlight/80 mb-3 sm:mb-5 animate__animated animate__fadeInDown">
         {{ t('brand.tagline') }}
       </p>
-      <h1 class="font-serif text-3xl sm:text-6xl md:text-7xl leading-[1.05] text-[#f7e8be] drop-shadow-[0_2px_10px_rgba(0,0,0,0.75)] sm:text-gold-gradient mb-4 sm:mb-6 animate__animated animate__fadeInUp">
+      <h1 class="hero-title font-serif text-3xl sm:text-6xl md:text-7xl leading-[1.05] text-[#f7e8be] drop-shadow-[0_2px_10px_rgba(0,0,0,0.75)] sm:text-gold-gradient mb-4 sm:mb-6 animate__animated animate__fadeInUp">
         {{ active_banner.title if active_banner else t('hero.title') }}
       </h1>
-      <p class="text-danu-cream/70 text-sm sm:text-lg mb-6 sm:mb-10 max-w-xl mx-auto animate__animated animate__fadeInUp animate__delay-1s">
+      <p class="hero-subtitle text-danu-cream/70 text-sm sm:text-lg mb-6 sm:mb-10 max-w-xl mx-auto animate__animated animate__fadeInUp animate__delay-1s">
         {{ active_banner.subtitle if active_banner else t('hero.subtitle') }}
       </p>
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 animate__animated animate__fadeInUp animate__delay-1s">
+      <div class="hero-actions flex flex-col sm:flex-row items-center justify-center gap-4 animate__animated animate__fadeInUp animate__delay-1s">
         {% if active_banner and active_banner.cta_text %}
-        <a href="{{ active_banner.cta_link or '#shop' }}" class="btn-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest">{{ active_banner.cta_text }}</a>
+        <a href="{{ active_banner.cta_link or '#shop' }}" class="hero-cta btn-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest">{{ active_banner.cta_text }}</a>
         {% else %}
-        <a href="#shop" class="btn-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest">{{ t('hero.cta') }}</a>
-        <a href="#shop" class="btn-outline-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest border">{{ t('hero.cta2') }}</a>
+        <a href="#shop" class="hero-cta btn-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest">{{ t('hero.cta') }}</a>
+        <a href="#shop" class="hero-cta hero-cta-outline btn-outline-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest border">{{ t('hero.cta2') }}</a>
         {% endif %}
       </div>
       </div>

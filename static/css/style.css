@@ -24,6 +24,7 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
@@ -31,6 +32,11 @@ body {
   background-color: var(--danu-black);
   color: var(--danu-cream);
   overflow-x: hidden;
+  max-width: 100%;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 .font-serif-lux {
@@ -40,6 +46,13 @@ body {
 /* ---------------- Page-load transition ---------------- */
 main {
   animation: pageFadeIn 0.6s var(--ease-luxury) both;
+}
+
+.main-shell {
+  overflow-x: hidden;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
 }
 @keyframes pageFadeIn {
   0%   { opacity: 0; transform: translateY(8px); }
@@ -588,14 +601,14 @@ input:focus, textarea:focus, select:focus {
 /* ---------------- Mobile layout fixes for homepage hero + footer ---------------- */
 @media (max-width: 768px) {
   .main-shell {
-    overflow: visible;
+    overflow-x: hidden;
     padding-top: 5rem;
   }
 
   .home-hero {
     min-height: auto;
-    padding: 5.5rem 0 3rem;
-    overflow: visible !important;
+    padding: 5rem 0 3rem;
+    overflow: hidden;
   }
 
   .home-hero .hero-media {
@@ -610,8 +623,45 @@ input:focus, textarea:focus, select:focus {
     position: relative;
     z-index: 2;
     width: 100%;
+    max-width: 92vw;
+    margin: 0 auto;
+    padding: 1rem 0.9rem;
+  }
+
+  .home-hero .hero-eyebrow {
+    font-size: 0.62rem;
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+  }
+
+  .home-hero .hero-title {
+    font-size: clamp(1.85rem, 6vw, 2.5rem);
+    line-height: 1.08;
+    margin-bottom: 0.8rem;
+  }
+
+  .home-hero .hero-subtitle {
+    font-size: 0.95rem;
+    line-height: 1.55;
+    margin-bottom: 1rem;
+  }
+
+  .home-hero .hero-actions {
+    width: 100%;
+    gap: 0.7rem;
+  }
+
+  .home-hero .hero-cta {
+    width: 100%;
     max-width: 100%;
-    margin: 0;
+    min-width: 0;
+    padding: 0.8rem 0.95rem;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    text-align: center;
+    justify-content: center;
+    white-space: normal;
+    word-break: break-word;
   }
 
   .home-hero .absolute.bottom-8 {
@@ -624,6 +674,7 @@ input:focus, textarea:focus, select:focus {
 
   .site-footer {
     margin-top: 2rem;
+    overflow-x: hidden;
   }
 
   .site-footer-grid {
@@ -639,6 +690,9 @@ input:focus, textarea:focus, select:focus {
 
   .site-footer a,
   .site-footer p {
+    display: block;
+    max-width: 100%;
     word-break: break-word;
+    overflow-wrap: anywhere;
   }
 }
