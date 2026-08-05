@@ -635,7 +635,7 @@ input:focus, textarea:focus, select:focus {
   }
 
   .home-hero .hero-title {
-    font-size: clamp(1.85rem, 6vw, 2.5rem);
+    font-size: clamp(1.4rem, 7vw, 2.2rem);
     line-height: 1.08;
     margin-bottom: 0.8rem;
   }
@@ -662,6 +662,38 @@ input:focus, textarea:focus, select:focus {
     justify-content: center;
     white-space: normal;
     word-break: break-word;
+  }
+
+  /* Remove hero image scaling that can create perceived zoom on small viewports */
+  .home-hero .hero-media {
+    transform: none !important;
+    filter: saturate(1) contrast(1) brightness(0.85);
+    max-width: 100%;
+    height: auto; /* allow natural height so it doesn't force layout zoom */
+    position: absolute;
+    inset: 0;
+    object-fit: cover;
+  }
+
+  /* Make primary buttons allow multi-line labels (e.g., long Amharic text) */
+  .btn-luxury, .btn-outline-luxury {
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  /* Tighten hero content panel width so it never exceeds viewport */
+  .hero-content-panel {
+    max-width: 92vw !important;
+    padding-left: 0.9rem !important;
+    padding-right: 0.9rem !important;
+  }
+
+  /* Specific very-small-screen adjustments to avoid browser scaling */
+  @media (max-width: 420px) {
+    .home-hero .hero-title { font-size: 1.35rem; }
+    .home-hero .hero-subtitle { font-size: 0.9rem; }
+    .hero-content-panel { padding: 0.8rem !important; }
   }
 
   .home-hero .absolute.bottom-8 {
