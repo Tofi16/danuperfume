@@ -65,6 +65,37 @@
     {% endfor %}
   </div>
 </div>
+
+<div class="max-w-3xl mx-auto px-5 sm:px-8 py-6">
+  <div class="glass rounded-2xl p-6 sm:p-8">
+    <h3 class="font-serif text-lg text-danu-goldlight mb-3">Profile Settings</h3>
+    <form action="{{ url_for('update_account_settings') }}" method="POST" class="space-y-4">
+      <div>
+        <label class="text-xs text-danu-cream/60">Full name</label>
+        <input type="text" name="full_name" value="{{ current_user.full_name }}" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none" />
+      </div>
+
+      <div>
+        <label class="text-xs text-danu-cream/60">Phone</label>
+        <input type="tel" name="phone" value="{{ current_user.phone or '' }}" placeholder="+251 9XX XXX XXX" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none" />
+      </div>
+
+      <div>
+        <label class="text-xs text-danu-cream/60">Preferred language</label>
+        <select name="preferred_language" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none">
+          {% for code in available_languages %}
+          <option value="{{ code }}" {% if code == current_user.preferred_language or (not current_user.preferred_language and code == current_lang) %}selected{% endif %}>{{ lang_names[code] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="flex items-center justify-between">
+        <button type="submit" class="btn-luxury rounded-full px-6 py-2 text-sm uppercase tracking-widest">Save Settings</button>
+        <a href="{{ url_for('customer_logout') }}" class="text-xs px-4 py-2 rounded-full border border-red-500/40 text-red-400 hover:bg-red-500/10">Log Out</a>
+      </div>
+    </form>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}

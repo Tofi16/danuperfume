@@ -73,6 +73,7 @@ class Customer(UserMixin, db.Model):
     username = db.Column(db.String(60), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
     phone = db.Column(db.String(30), nullable=True)
+    preferred_language = db.Column(db.String(10), nullable=True, default=None)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_password(self, raw_password: str) -> None:

@@ -1103,6 +1103,35 @@ def create_app(env_name=None):
             loyalty_remaining=loyalty_remaining,
         )
 
+        @app.route("/account/settings", methods=["POST"])
+        @login_required
+        def update_account_settings():
+            if not isinstance(current_user, Customer):
+                flash("Only customers can update these settings.", "error")
+                return redirect(url_for("customer_account"))
+
+            full_name = request.form.get("full_name", "").strip()
+            phone = request.form.get("phone", "").strip()
+            preferred_language = request.form.get("preferred_language")
+
+            if full_name:
+                current_user.full_name = full_name
+            current_user.phone = phone or None
+            current_user.preferred_language = preferred_language or None
+
+            try:
+                db.session.add(current_user)
+                db.session.commit()
+                # Also update session language immediately if changed
+                if preferred_language:
+                    session["lang"] = preferred_language
+                flash("Profile settings saved.", "success")
+            except Exception as exc:  # noqa: BLE001
+                db.session.rollback()
+                flash("Could not save settings — please try again.", "error")
+
+            return redirect(url_for("customer_account"))
+
     # =========================================================
     # ADMIN ROUTES
     # =========================================================
