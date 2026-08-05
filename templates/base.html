@@ -53,7 +53,7 @@
 </head>
 
 <body class="font-sans bg-danu-black text-danu-cream antialiased"
-      x-data="{ cartOpen: false }" @open-cart.window="cartOpen = true">
+  x-data="{ cartOpen: false, mobileNavOpen: false }" @open-cart.window="cartOpen = true">
 
 <!-- Ambient plum-gold mesh background (behind all pages) -->
 <div class="mesh-bg"></div>
@@ -98,6 +98,13 @@
       <a href="{{ url_for('index') }}#about" class="nav-link hover:text-danu-goldlight transition-colors">{{ t('nav.about') }}</a>
     </div>
 
+    <!-- Mobile menu toggle -->
+    <button @click="mobileNavOpen = !mobileNavOpen" class="md:hidden p-2 rounded-full hover:bg-danu-gold/10 transition-colors" aria-label="Toggle menu">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    </button>
+
     <div class="flex items-center gap-3 sm:gap-5">
 
       <!-- Language selector moved to customer profile (account page) -->
@@ -131,6 +138,21 @@
     </div>
   </div>
 </nav>
+
+<!-- Mobile nav panel -->
+<div x-show="mobileNavOpen" x-cloak @click.outside="mobileNavOpen = false" class="mobile-nav-panel md:hidden">
+  <div class="max-w-3xl mx-auto px-4 py-4 space-y-3">
+    <a href="{{ url_for('index') }}" class="block py-2 text-sm text-danu-cream/80">{{ t('nav.home') }}</a>
+    <a href="{{ url_for('index') }}#shop" class="block py-2 text-sm text-danu-cream/80">{{ t('nav.shop') }}</a>
+    <a href="{{ url_for('index') }}#about" class="block py-2 text-sm text-danu-cream/80">{{ t('nav.about') }}</a>
+    {% if current_user.is_authenticated %}
+    <a href="{{ url_for('customer_account') }}" class="block py-2 text-sm text-danu-cream/80">My Profile</a>
+    <a href="{{ url_for('customer_logout') }}" class="block py-2 text-sm text-red-400">Log Out</a>
+    {% else %}
+    <a href="{{ url_for('customer_login') }}" class="block py-2 text-sm text-danu-cream/80">Log In / Register</a>
+    {% endif %}
+  </div>
+</div>
 
 <!-- ============ FLASH MESSAGES ============ -->
 <div class="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md space-y-2">

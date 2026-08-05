@@ -728,3 +728,19 @@ input:focus, textarea:focus, select:focus {
     overflow-wrap: anywhere;
   }
 }
+
+/* Mobile navigation panel */
+.mobile-nav-panel {
+  position: fixed;
+  top: 64px; /* below the fixed nav */
+  left: 0;
+  right: 0;
+  background: rgba(20, 11, 24, 0.98);
+  border-bottom: 1px solid rgba(203, 178, 106, 0.08);
+  z-index: 45;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+}
+.mobile-nav-panel a { display: block; padding: 0.6rem 1rem; }
+
+/* ensure header options hidden on small screens (already mostly hidden) */
+.hidden-mobile { display: none !important; }
