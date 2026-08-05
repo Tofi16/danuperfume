@@ -248,13 +248,9 @@ main {
 }
 
 .product-img-wrap img {
-  transition: transform 0.45s ease, filter 0.35s ease;
-  transform-origin: center;
-}
-
-.glass-card:hover .product-img-wrap img {
-  transform: scale(1.04);
-  filter: saturate(1.05) contrast(1.02);
+  transition: none;
+  transform: none;
+  filter: none;
 }
 
 /* ---------------- Custom scrollbar ---------------- */
