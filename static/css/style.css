@@ -729,6 +729,31 @@ input:focus, textarea:focus, select:focus {
   }
 }
 
+/* Mobile header layout: keep brand left, hamburger at far right */
+@media (max-width: 768px) {
+  .glass-nav .max-w-7xl {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .glass-nav a.group, .glass-nav .logo-mark { order: 0; }
+  .mobile-hamburger { order: 2; margin-left: auto; }
+  /* Hide desktop-only header items explicitly (if additional elements need hiding, add .hidden-mobile class) */
+  .hidden-mobile { display: none !important; }
+}
+
+/* Touch & scrolling improvements (applies globally but safe) */
+html, body {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Reduce accidental double-tap zoom on interactive controls without disabling zoom globally */
+button, a, input, select, textarea, .btn-luxury {
+  touch-action: manipulation;
+}
+
 /* Mobile navigation panel */
 .mobile-nav-panel {
   position: fixed;
