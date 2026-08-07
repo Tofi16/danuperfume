@@ -400,6 +400,62 @@ class Coupon(db.Model):
         return f"<Coupon {self.code}>"
 
 
+class DailySummary(db.Model):
+    """Daily transaction summary and metrics logged at midnight UTC.
+    
+    Captures daily performance metrics for analytics and reporting:
+    - Total orders placed and their status breakdown
+    - Total revenue and transactions
+    - New customers acquired
+    - Daily delivery metrics
+    
+    Reset counters are stored separately to preserve historical data.
+    """
+
+    __tablename__ = "daily_summaries"
+
+    id = db.Column(db.Integer, primary_key=True)
+    summary_date = db.Column(db.Date, unique=True, nullable=False, index=True)  # UTC date
+    
+    # Order metrics
+    total_orders = db.Column(db.Integer, default=0, nullable=False)
+    pending_orders = db.Column(db.Integer, default=0, nullable=False)
+    approved_orders = db.Column(db.Integer, default=0, nullable=False)
+    delivered_orders = db.Column(db.Integer, default=0, nullable=False)
+    cancelled_orders = db.Column(db.Integer, default=0, nullable=False)
+    
+    # Financial metrics
+    total_revenue = db.Column(db.Numeric(12, 2), default=0, nullable=False)
+    total_discount_given = db.Column(db.Numeric(12, 2), default=0, nullable=False)
+    total_delivery_fees = db.Column(db.Numeric(12, 2), default=0, nullable=False)
+    
+    # Customer metrics
+    new_customers = db.Column(db.Integer, default=0, nullable=False)
+    returning_customers = db.Column(db.Integer, default=0, nullable=False)
+    
+    # Delivery metrics
+    standard_courier_count = db.Column(db.Integer, default=0, nullable=False)
+    motorcycle_rider_count = db.Column(db.Integer, default=0, nullable=False)
+    post_office_pickup_count = db.Column(db.Integer, default=0, nullable=False)
+    
+    # Risk metrics
+    high_risk_orders = db.Column(db.Integer, default=0, nullable=False)
+    medium_risk_orders = db.Column(db.Integer, default=0, nullable=False)
+    
+    # Loyalty metrics
+    points_issued = db.Column(db.Integer, default=0, nullable=False)
+    
+    # Report metadata
+    report_generated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    telegram_notified = db.Column(db.Boolean, default=False, nullable=False)
+    telegram_notified_at = db.Column(db.DateTime, nullable=True)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<DailySummary {self.summary_date}>"
+
+
 class LoyaltyAccount(db.Model):
     """Simple points-balance account keyed by the customer's phone number."""
 

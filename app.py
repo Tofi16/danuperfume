@@ -23,7 +23,7 @@ import os
 import random
 import uuid
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from decimal import Decimal, InvalidOperation
 from functools import wraps
 
@@ -39,13 +39,15 @@ from cloudinary import config as cloudinary_config
 from cloudinary.uploader import upload as cloudinary_upload
 from cloudinary.utils import cloudinary_url
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import func, inspect, text
+from flask_apscheduler import APScheduler
 
 from config import config_by_name
 from models import (
     db, User, Customer, ActivityLog, Category, Product, ProductImage, Review, StockAlert,
     Bank, DeliveryZone, Coupon, LoyaltyAccount, Banner, PostOffice, Order, OrderItem,
-    OrderIssueReport, AppSetting,
+    OrderIssueReport, AppSetting, DailySummary,
 )
 from translations import TRANSLATIONS, get_text
 
@@ -98,6 +100,11 @@ def create_app(env_name=None):
     # --- Initialize extensions ---
     db.init_app(app)
 
+    # --- Initialize APScheduler for daily automated tasks ---
+    scheduler = APScheduler()
+    scheduler.init_app(app)
+    scheduler.start()
+
     # SECURITY FIX: CSRF protection for every POST/PUT/DELETE form in the app
     # (login, checkout, admin CRUD, etc.). `csrf_token()` is exposed to every
     # template below so `{{ csrf_token() }}` can be dropped into any <form>.
@@ -127,6 +134,14 @@ def create_app(env_name=None):
     # --- Ensure upload folder exists ---
     upload_path = os.path.join(app.root_path, app.config["UPLOAD_FOLDER"])
     os.makedirs(upload_path, exist_ok=True)
+
+    # --- Schedule daily automated tasks ---
+    # Schedule the daily summary generation to run at 00:00 UTC every day
+    # This will capture metrics, create summary records, and send Telegram reports
+    @scheduler.scheduled_job('cron', hour=0, minute=0, timezone='UTC', id='daily_summary')
+    def scheduled_daily_summary():
+        with app.app_context():
+            generate_daily_summary()
 
     # =========================================================
     # i18n helpers
@@ -364,6 +379,172 @@ def create_app(env_name=None):
         # login instead of sitting in a chat log. See notify_new_order_telegram
         # docstring / part 1 of the review.
         send_telegram_message(message)
+
+    def generate_daily_summary():
+        """
+        Scheduled job to run at 00:00 UTC each day.
+        Captures daily transaction metrics, creates a summary record, and sends a report to Telegram.
+        """
+        try:
+            yesterday = datetime.utcnow().date() - timedelta(days=1)
+            start_of_day = datetime.combine(yesterday, datetime.min.time())
+            end_of_day = datetime.combine(yesterday, datetime.max.time())
+            
+            # Check if summary already exists for this day (prevents duplicates)
+            existing = DailySummary.query.filter_by(summary_date=yesterday).first()
+            if existing:
+                return f"Summary already exists for {yesterday}"
+            
+            # Query all orders from yesterday
+            orders_yesterday = Order.query.filter(
+                Order.created_at >= start_of_day,
+                Order.created_at <= end_of_day
+            ).all()
+            
+            # Calculate metrics
+            total_orders = len(orders_yesterday)
+            pending_orders = len([o for o in orders_yesterday if o.status == Order.STATUS_PENDING])
+            approved_orders = len([o for o in orders_yesterday if o.status == Order.STATUS_APPROVED])
+            delivered_orders = len([o for o in orders_yesterday if o.status == Order.STATUS_DELIVERED])
+            cancelled_orders = len([o for o in orders_yesterday if o.status == Order.STATUS_CANCELLED])
+            
+            total_revenue = Decimal('0')
+            total_discount = Decimal('0')
+            total_delivery_fees = Decimal('0')
+            standard_courier_count = 0
+            motorcycle_rider_count = 0
+            post_office_pickup_count = 0
+            high_risk_count = 0
+            medium_risk_count = 0
+            total_points_issued = 0
+            
+            for order in orders_yesterday:
+                total_revenue += order.total_amount or Decimal('0')
+                total_discount += order.discount_amount or Decimal('0')
+                total_delivery_fees += order.delivery_fee or Decimal('0')
+                total_points_issued += order.points_earned or 0
+                
+                if order.delivery_type == Order.DELIVERY_STANDARD:
+                    standard_courier_count += 1
+                elif order.delivery_type == Order.DELIVERY_MOTORCYCLE:
+                    motorcycle_rider_count += 1
+                elif order.delivery_type == Order.DELIVERY_PICKUP:
+                    post_office_pickup_count += 1
+                
+                if order.risk_level == Order.RISK_HIGH:
+                    high_risk_count += 1
+                elif order.risk_level == Order.RISK_MEDIUM:
+                    medium_risk_count += 1
+            
+            # Calculate new vs returning customers (based on phone number duplicates)
+            customer_phones_yesterday = [o.customer_phone for o in orders_yesterday]
+            new_customers = 0
+            returning_customers = 0
+            
+            for phone in set(customer_phones_yesterday):
+                previous_orders = Order.query.filter(
+                    Order.customer_phone == phone,
+                    Order.created_at < start_of_day
+                ).count()
+                
+                if previous_orders == 0:
+                    new_customers += 1
+                else:
+                    returning_customers += 1
+            
+            # Create the daily summary record
+            summary = DailySummary(
+                summary_date=yesterday,
+                total_orders=total_orders,
+                pending_orders=pending_orders,
+                approved_orders=approved_orders,
+                delivered_orders=delivered_orders,
+                cancelled_orders=cancelled_orders,
+                total_revenue=total_revenue,
+                total_discount_given=total_discount,
+                total_delivery_fees=total_delivery_fees,
+                new_customers=new_customers,
+                returning_customers=returning_customers,
+                standard_courier_count=standard_courier_count,
+                motorcycle_rider_count=motorcycle_rider_count,
+                post_office_pickup_count=post_office_pickup_count,
+                high_risk_orders=high_risk_count,
+                medium_risk_orders=medium_risk_count,
+                points_issued=total_points_issued,
+                report_generated_at=datetime.utcnow(),
+            )
+            db.session.add(summary)
+            db.session.commit()
+            
+            # Send Telegram report
+            send_daily_report_telegram(summary)
+            
+            return f"Daily summary created for {yesterday}"
+        except Exception as e:  # noqa: BLE001
+            print(f"Error generating daily summary: {str(e)}")
+            return f"Error: {str(e)}"
+
+    def send_daily_report_telegram(summary):
+        """
+        Formats and sends the daily summary report to Telegram chat.
+        Includes all key metrics for daily review by admin.
+        """
+        chat_id = get_setting("telegram_chat_id")
+        if not chat_id or not TELEGRAM_BOT_TOKEN:
+            return False
+        
+        try:
+            # Format the daily report message
+            report_lines = [
+                "📊 <b>Daily Summary Report — Danu Perfume</b>",
+                f"<b>Date:</b> {summary.summary_date.strftime('%A, %B %d, %Y')}",
+                "",
+                "<b>📦 Order Metrics</b>",
+                f"  • Total Orders: {summary.total_orders}",
+                f"  • Pending: {summary.pending_orders} | Approved: {summary.approved_orders}",
+                f"  • Delivered: {summary.delivered_orders} | Cancelled: {summary.cancelled_orders}",
+                "",
+                "<b>💰 Financial Summary</b>",
+                f"  • Total Revenue: {summary.total_revenue} ETB",
+                f"  • Discounts Given: {summary.total_discount_given} ETB",
+                f"  • Delivery Fees: {summary.total_delivery_fees} ETB",
+                "",
+                "<b>👥 Customer Metrics</b>",
+                f"  • New Customers: {summary.new_customers}",
+                f"  • Returning Customers: {summary.returning_customers}",
+                "",
+                "<b>🚚 Delivery Breakdown</b>",
+                f"  • Standard Courier: {summary.standard_courier_count}",
+                f"  • Motorcycle Rider: {summary.motorcycle_rider_count}",
+                f"  • Post Office Pickup: {summary.post_office_pickup_count}",
+                "",
+                "<b>⚠️ Risk Assessment</b>",
+                f"  • High Risk Orders: {summary.high_risk_orders}",
+                f"  • Medium Risk Orders: {summary.medium_risk_orders}",
+                "",
+                "<b>🎁 Loyalty Points</b>",
+                f"  • Points Issued: {summary.points_issued}",
+                "",
+                f"<i>Report Generated: {summary.report_generated_at.strftime('%H:%M:%S UTC')}</i>",
+            ]
+            
+            message = "\n".join(report_lines)
+            
+            resp = requests.post(
+                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                json={"chat_id": chat_id, "text": message, "parse_mode": "HTML"},
+                timeout=8,
+            )
+            
+            if resp.ok:
+                # Update the summary record to mark as notified
+                summary.telegram_notified = True
+                summary.telegram_notified_at = datetime.utcnow()
+                db.session.commit()
+            
+            return resp.ok
+        except Exception:  # noqa: BLE001
+            return False
 
     # =========================================================
     # Activity log + RBAC helpers
@@ -1177,6 +1358,65 @@ def create_app(env_name=None):
             flash("Could not save settings — please try again.", "error")
 
         return redirect(url_for("customer_account"))
+
+    @app.route("/change-password", methods=["GET", "POST"])
+    @login_required
+    def change_password():
+        """Allow customers and admins to change their password securely."""
+        if not isinstance(current_user, (Customer, User)):
+            flash("You must be logged in to change your password.", "error")
+            return redirect(url_for("customer_login"))
+
+        if request.method == "POST":
+            current_password = request.form.get("current_password", "")
+            new_password = request.form.get("new_password", "")
+            confirm_password = request.form.get("confirm_password", "")
+
+            errors = []
+
+            # Validate current password
+            if not current_password:
+                errors.append("Current password is required.")
+            elif not current_user.check_password(current_password):
+                errors.append("Current password is incorrect.")
+
+            # Validate new password
+            if not new_password:
+                errors.append("New password is required.")
+            elif len(new_password) < 6:
+                errors.append("New password must be at least 6 characters.")
+
+            # Validate password confirmation
+            if new_password != confirm_password:
+                errors.append("New passwords do not match.")
+
+            # Prevent reusing the current password
+            if current_password and new_password and current_user.check_password(new_password):
+                errors.append("New password must be different from your current password.")
+
+            if errors:
+                for error in errors:
+                    flash(error, "error")
+                return render_template("change_password.html")
+
+            # Update the password
+            try:
+                current_user.set_password(new_password)
+                db.session.add(current_user)
+                db.session.commit()
+
+                # Log the activity
+                if isinstance(current_user, User):
+                    log_activity("auth.password_change", f"{current_user.username} changed password")
+
+                flash("Your password has been changed successfully.", "success")
+                return redirect(url_for("customer_account"))
+            except Exception:  # noqa: BLE001
+                db.session.rollback()
+                flash("Could not update password — please try again.", "error")
+                return render_template("change_password.html")
+
+        return render_template("change_password.html")
 
     # =========================================================
     # ADMIN ROUTES
