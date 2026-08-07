@@ -17,6 +17,7 @@ Responsibilities:
 """
 
 import csv
+import click
 import io
 import os
 import random
@@ -1033,7 +1034,7 @@ def create_app(env_name=None):
 
         if request.method == "POST":
             full_name = request.form.get("full_name", "").strip()
-            username = request.form.get("username", "").strip()
+            username = request.form.get("username", "").strip().lower()
             password = request.form.get("password", "")
             confirm_password = request.form.get("confirm_password", "")
 
@@ -1057,7 +1058,13 @@ def create_app(env_name=None):
             customer = Customer(full_name=full_name, username=username)
             customer.set_password(password)
             db.session.add(customer)
-            db.session.commit()
+            try:
+                db.session.commit()
+            except Exception:  # noqa: BLE001
+                db.session.rollback()
+                flash("Unable to create your account right now. Please try again.", "error")
+                return render_template("register.html", full_name=full_name, username=username)
+
             login_user(customer)
             flash(f"Welcome to Danu Perfume & Cosmo, {full_name}!", "success")
             return redirect(url_for("index"))
@@ -2055,27 +2062,28 @@ def create_app(env_name=None):
         print("Database initialized.")
 
     @app.cli.command("reset-accounts")
-    def reset_accounts_command():
+    @click.option("--force", is_flag=True, help="Delete existing admin/customer accounts and recreate defaults.")
+    def reset_accounts_command(force):
         """
-        Flask CLI command: `flask reset-accounts`
+        Flask CLI command: `flask reset-accounts --force`
 
-        Wipes EVERY existing admin (User) and customer (Customer) account, then
-        re-creates Danuta and Tofik fresh from ADMIN_PASSWORD_DANUTA /
-        ADMIN_PASSWORD_TOFIK — so you can set your own strong passwords in
-        Render's Environment tab first, then run this once via the Render Shell.
-
-        This does NOT touch orders, products, reviews, or anything else — only
-        the two account tables. Run it once, then remove/rotate this access if
-        you don't want it re-runnable later (or just don't call it again).
+        Deletes all existing admin (User) and customer (Customer) records, then
+        re-creates the default Danuta/Tofik admin accounts from configured env vars.
+        Only run this when you need to remove stale or conflicting login records.
         """
-        deleted_customers = Customer.query.delete()
-        deleted_admins = User.query.delete()
-        db.session.commit()
-        print(f"[Danu Perfume] Removed {deleted_admins} admin account(s) and {deleted_customers} customer account(s).")
+        if not force:
+            print("This command is destructive. Run it again with --force to proceed.")
+            return
 
-        _init_db(app)
-        print("[Danu Perfume] Danuta and Tofik re-created from ADMIN_PASSWORD_DANUTA / ADMIN_PASSWORD_TOFIK.")
-        print("[Danu Perfume] Done. Log in at /login with your new passwords.")
+        with app.app_context():
+            deleted_customers = Customer.query.delete()
+            deleted_admins = User.query.delete()
+            db.session.commit()
+            print(f"[Danu Perfume] Removed {deleted_admins} admin account(s) and {deleted_customers} customer account(s).")
+
+            _init_db(app)
+            print("[Danu Perfume] Danuta and Tofik re-created from ADMIN_PASSWORD_DANUTA / ADMIN_PASSWORD_TOFIK.")
+            print("[Danu Perfume] Done. Log in at /login with your new passwords.")
 
     def _ensure_schema(flask_app):
         """
