@@ -103,7 +103,14 @@ def create_app(env_name=None):
     # --- Initialize APScheduler for daily automated tasks ---
     scheduler = APScheduler()
     scheduler.init_app(app)
-    scheduler.start()
+    
+    # Only start the scheduler if it's not already running and we're not in a worker thread
+    try:
+        if not scheduler.running:
+            scheduler.start()
+    except Exception as e:  # noqa: BLE001
+        print(f"Warning: APScheduler failed to start: {str(e)}")
+        # Don't fail the entire app if scheduler has issues
 
     # SECURITY FIX: CSRF protection for every POST/PUT/DELETE form in the app
     # (login, checkout, admin CRUD, etc.). `csrf_token()` is exposed to every
@@ -138,10 +145,13 @@ def create_app(env_name=None):
     # --- Schedule daily automated tasks ---
     # Schedule the daily summary generation to run at 00:00 UTC every day
     # This will capture metrics, create summary records, and send Telegram reports
-    @scheduler.scheduled_job('cron', hour=0, minute=0, timezone='UTC', id='daily_summary')
-    def scheduled_daily_summary():
-        with app.app_context():
-            generate_daily_summary()
+    try:
+        @scheduler.scheduled_job('cron', hour=0, minute=0, timezone='UTC', id='daily_summary')
+        def scheduled_daily_summary():
+            with app.app_context():
+                generate_daily_summary()
+    except Exception as e:  # noqa: BLE001
+        print(f"Warning: Could not register scheduler job: {str(e)}")
 
     # =========================================================
     # i18n helpers

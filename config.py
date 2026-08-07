@@ -104,8 +104,7 @@ class Config:
     SCHEDULER_TIMEZONE = "UTC"
     SCHEDULER_JOBSTORES = {
         'default': {
-            'type': 'sqlalchemy',
-            'url': SQLALCHEMY_DATABASE_URI
+            'type': 'memory'  # Use memory store instead of SQLAlchemy for reliability
         }
     }
     SCHEDULER_EXECUTORS = {
