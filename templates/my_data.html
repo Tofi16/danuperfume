@@ -10,6 +10,7 @@
   </div>
 
   <form method="POST" class="glass rounded-2xl p-6 sm:p-8 space-y-4">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <p class="text-xs text-danu-cream/50">To verify it's you, enter your phone number and the code of any one order you've placed.</p>
     <div>
       <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Phone Number</label>
@@ -27,6 +28,7 @@
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-serif text-xl text-danu-goldlight">{{ data.orders|length }} Order(s) Found</h3>
       <form method="POST" action="{{ url_for('customer_data_export_json') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="phone" value="{{ data.phone }}">
         <input type="hidden" name="order_code" value="{{ data.orders[0].order_code }}">
         <button type="submit" class="text-xs px-4 py-2 rounded-full border border-danu-gold/40 text-danu-goldlight hover:border-danu-gold">Export as JSON</button>

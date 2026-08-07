@@ -223,6 +223,7 @@
                 <a href="{{ url_for('admin_product_edit', product_id=p.id) }}" class="text-danu-gold hover:underline text-xs mr-4">{{ t('admin.products.edit') }}</a>
                 <form method="POST" action="{{ url_for('admin_product_delete', product_id=p.id) }}" class="inline"
                       onsubmit="return confirm('Delete this product?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button type="submit" class="text-red-400 hover:underline text-xs">{{ t('admin.products.delete') }}</button>
                 </form>
               </td>
@@ -241,6 +242,7 @@
       </h1>
 
       <form method="POST" enctype="multipart/form-data" class="glass rounded-2xl p-6 sm:p-8 space-y-5 max-w-3xl">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
             <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('admin.products.name') }}</label>
@@ -335,6 +337,7 @@
             <div class="relative">
               <img src="{{ media_url(img.filename) }}" class="w-16 h-16 rounded-lg object-cover">
               <form method="POST" action="{{ url_for('admin_product_gallery_delete', image_id=img.id) }}" class="absolute -top-2 -right-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="w-5 h-5 bg-red-500 text-white rounded-full text-xs leading-none">&times;</button>
               </form>
             </div>
@@ -517,6 +520,7 @@
           <div class="glass rounded-2xl p-6">
             <h3 class="font-serif text-lg text-danu-goldlight mb-4">Delivery &amp; Rider</h3>
             <form method="POST" action="{{ url_for('admin_order_update_delivery_fee', order_id=order.id) }}" class="space-y-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <select name="delivery_type" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
                 <option value="Standard Courier" {% if order.delivery_type == 'Standard Courier' %}selected{% endif %}>Standard Courier</option>
                 <option value="Motorcycle Rider" {% if order.delivery_type == 'Motorcycle Rider' %}selected{% endif %}>Motorcycle Rider</option>
@@ -537,6 +541,7 @@
           <div class="glass rounded-2xl p-6">
             <h3 class="font-serif text-lg text-danu-goldlight mb-4">{{ t('admin.orders.update_status') }}</h3>
             <form method="POST" action="{{ url_for('admin_order_update_status', order_id=order.id) }}" class="space-y-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <select name="status" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
                 {% for s in statuses %}
                 <option value="{{ s }}" {% if order.status == s %}selected{% endif %}>{{ s }}</option>
@@ -618,6 +623,7 @@
           <code class="text-danu-gold">chat.id</code> value.
         </p>
         <form method="POST" class="space-y-4">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div>
             <label class="text-xs uppercase tracking-widest text-danu-gold mb-1 block">Telegram Chat ID (receives order alerts)</label>
             <input type="text" name="telegram_chat_id" value="{{ telegram_chat_id }}" placeholder="e.g. 123456789"
@@ -636,6 +642,7 @@
           </div>
         </form>
         <form method="POST" action="{{ url_for('admin_settings_telegram_test') }}" class="mt-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="text-xs px-4 py-2 rounded-full border border-danu-gold/30 text-danu-gold hover:bg-danu-gold/10">
             Send Test Message
           </button>
@@ -651,6 +658,7 @@
         </p>
         <a href="{{ url_for('admin_products_import_template') }}" class="text-xs text-danu-gold hover:underline">Download CSV template →</a>
         <form method="POST" enctype="multipart/form-data" class="space-y-4">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="file" name="csv_file" accept=".csv" required
                  class="w-full text-sm text-danu-cream/70 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-danu-gold/15 file:text-danu-goldlight">
           <button type="submit" class="btn-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest">Import Products</button>
@@ -682,8 +690,10 @@
             </div>
           </div>
           <div class="flex gap-2 shrink-0">
-            <form method="POST" action="{{ url_for('admin_review_approve', review_id=r.id) }}"><button class="text-xs px-3 py-1.5 rounded-full border border-green-500/40 text-green-400">Approve</button></form>
-            <form method="POST" action="{{ url_for('admin_review_delete', review_id=r.id) }}"><button class="text-xs px-3 py-1.5 rounded-full border border-red-500/40 text-red-400">Delete</button></form>
+            <form method="POST" action="{{ url_for('admin_review_approve', review_id=r.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="text-xs px-3 py-1.5 rounded-full border border-green-500/40 text-green-400">Approve</button></form>
+            <form method="POST" action="{{ url_for('admin_review_delete', review_id=r.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="text-xs px-3 py-1.5 rounded-full border border-red-500/40 text-red-400">Delete</button></form>
           </div>
         </div>
         {% else %}
@@ -715,9 +725,11 @@
                 {% endif %}
               </div>
             </div>
-            <form method="POST" action="{{ url_for('admin_review_delete', review_id=r.id) }}"><button class="text-xs px-3 py-1.5 rounded-full border border-red-500/40 text-red-400 shrink-0">Delete</button></form>
+            <form method="POST" action="{{ url_for('admin_review_delete', review_id=r.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="text-xs px-3 py-1.5 rounded-full border border-red-500/40 text-red-400 shrink-0">Delete</button></form>
           </div>
           <form method="POST" action="{{ url_for('admin_review_reply', review_id=r.id) }}" class="flex gap-2 mt-3 pt-3 border-t border-danu-gold/10">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="text" name="admin_reply" value="{{ r.admin_reply or '' }}" placeholder="Reply publicly as Danu Perfume…"
                    class="flex-1 bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-danu-gold">
             <button type="submit" class="text-xs px-4 py-2 rounded-full btn-outline-luxury border whitespace-nowrap">{{ 'Update Reply' if r.admin_reply else 'Reply' }}</button>
@@ -748,6 +760,7 @@
             <a href="{{ url_for('admin_order_detail', order_id=r.order_id) }}" class="text-xs px-3 py-1.5 rounded-full border border-danu-gold/30 text-danu-gold">View Order</a>
             {% endif %}
             <form method="POST" action="{{ url_for('admin_issue_report_resolve', report_id=r.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button class="text-xs px-3 py-1.5 rounded-full border border-green-500/40 text-green-400">Mark Resolved</button>
             </form>
           </div>
@@ -787,6 +800,7 @@
               <td class="px-5 py-3 text-xs text-danu-cream/40">{{ a.created_at.strftime('%d %b %Y') }}</td>
               <td class="px-5 py-3 text-right">
                 <form method="POST" action="{{ url_for('admin_stock_alert_mark_notified', alert_id=a.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button class="text-xs text-danu-gold hover:underline">Mark Notified</button>
                 </form>
               </td>
@@ -802,6 +816,7 @@
       <!-- ================= DELIVERY ZONES ================= -->
       <h1 class="font-serif text-3xl text-gold-gradient mb-8">Delivery Zones</h1>
       <form method="POST" action="{{ url_for('admin_delivery_zone_save') }}" class="glass rounded-2xl p-6 flex flex-col sm:flex-row gap-3 mb-8 max-w-xl">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="text" name="city_name" placeholder="City name" required
                class="flex-1 bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
         <input type="number" step="0.01" name="fee" placeholder="Fee (ETB)" required
@@ -820,6 +835,7 @@
               <td class="px-5 py-3 text-danu-goldlight">{{ currency }} {{ "%.2f"|format(z.fee) }}</td>
               <td class="px-5 py-3 text-right">
                 <form method="POST" action="{{ url_for('admin_delivery_zone_delete', zone_id=z.id) }}" onsubmit="return confirm('Remove this zone?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button class="text-xs text-red-400 hover:underline">{{ t('admin.products.delete') }}</button>
                 </form>
               </td>
@@ -850,6 +866,7 @@
       </form>
 
       <form method="POST" action="{{ url_for('admin_post_office_new') }}" class="glass rounded-2xl p-6 grid grid-cols-1 sm:grid-cols-5 gap-3 mb-8">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="text" name="name" placeholder="Office name" required class="bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
         <input type="text" name="city" placeholder="City" required class="bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
         <input type="text" name="region" placeholder="Region" class="bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
@@ -872,6 +889,7 @@
               <td class="px-5 py-3 font-mono text-xs">{{ o.postal_code or '—' }}</td>
               <td class="px-5 py-3 text-right">
                 <form method="POST" action="{{ url_for('admin_post_office_delete', office_id=o.id) }}" onsubmit="return confirm('Remove this branch?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button class="text-xs text-red-400 hover:underline">{{ t('admin.products.delete') }}</button>
                 </form>
               </td>
@@ -897,6 +915,7 @@
         </p>
         <a href="{{ url_for('admin_post_offices_import_template') }}" class="text-xs text-danu-gold hover:underline">Download CSV template →</a>
         <form method="POST" enctype="multipart/form-data" class="space-y-4">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="file" name="csv_file" accept=".csv" required
                  class="w-full text-sm text-danu-cream/70 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-danu-gold/15 file:text-danu-goldlight">
           <button type="submit" class="btn-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest">Import Post Offices</button>
@@ -907,6 +926,7 @@
       <!-- ================= COUPONS ================= -->
       <h1 class="font-serif text-3xl text-gold-gradient mb-8">Coupons</h1>
       <form method="POST" action="{{ url_for('admin_coupon_new') }}" class="glass rounded-2xl p-6 grid grid-cols-1 sm:grid-cols-5 gap-3 mb-8">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="text" name="code" placeholder="CODE2026" required class="bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold uppercase">
         <select name="discount_type" class="bg-danu-charcoal border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
           <option value="percent">% Percent</option>
@@ -933,8 +953,10 @@
                 <span class="text-xs px-2 py-1 rounded-full {% if c.is_active %}badge-delivered{% else %}badge-cancelled{% endif %}">{% if c.is_active %}Active{% else %}Disabled{% endif %}</span>
               </td>
               <td class="px-5 py-3 text-right whitespace-nowrap">
-                <form method="POST" action="{{ url_for('admin_coupon_toggle', coupon_id=c.id) }}" class="inline"><button class="text-xs text-danu-gold hover:underline mr-3">Toggle</button></form>
-                <form method="POST" action="{{ url_for('admin_coupon_delete', coupon_id=c.id) }}" class="inline" onsubmit="return confirm('Delete this coupon?');"><button class="text-xs text-red-400 hover:underline">{{ t('admin.products.delete') }}</button></form>
+                <form method="POST" action="{{ url_for('admin_coupon_toggle', coupon_id=c.id) }}" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="text-xs text-danu-gold hover:underline mr-3">Toggle</button></form>
+                <form method="POST" action="{{ url_for('admin_coupon_delete', coupon_id=c.id) }}" class="inline" onsubmit="return confirm('Delete this coupon?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="text-xs text-red-400 hover:underline">{{ t('admin.products.delete') }}</button></form>
               </td>
             </tr>
             {% else %}
@@ -988,9 +1010,11 @@
             {% if b.is_active %}
             <span class="text-xs px-2 py-1 rounded-full badge-delivered">Live</span>
             {% else %}
-            <form method="POST" action="{{ url_for('admin_banner_activate', banner_id=b.id) }}"><button class="text-xs px-3 py-1.5 rounded-full border border-danu-gold/40 text-danu-goldlight">Activate</button></form>
+            <form method="POST" action="{{ url_for('admin_banner_activate', banner_id=b.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="text-xs px-3 py-1.5 rounded-full border border-danu-gold/40 text-danu-goldlight">Activate</button></form>
             {% endif %}
-            <form method="POST" action="{{ url_for('admin_banner_delete', banner_id=b.id) }}" onsubmit="return confirm('Delete this banner?');"><button class="text-xs px-3 py-1.5 rounded-full border border-red-500/40 text-red-400">{{ t('admin.products.delete') }}</button></form>
+            <form method="POST" action="{{ url_for('admin_banner_delete', banner_id=b.id) }}" onsubmit="return confirm('Delete this banner?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="text-xs px-3 py-1.5 rounded-full border border-red-500/40 text-red-400">{{ t('admin.products.delete') }}</button></form>
           </div>
         </div>
         {% else %}
@@ -1002,6 +1026,7 @@
       <!-- ================= BANNER FORM ================= -->
       <h1 class="font-serif text-3xl text-gold-gradient mb-8">Add Banner</h1>
       <form method="POST" enctype="multipart/form-data" class="glass rounded-2xl p-6 sm:p-8 space-y-5 max-w-xl">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div>
           <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Title</label>
           <input type="text" name="title" required placeholder="e.g. Timkat Special — 20% Off" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
@@ -1067,6 +1092,7 @@
                 <a href="{{ url_for('admin_bank_edit', bank_id=bank.id) }}" class="text-danu-gold hover:underline text-xs mr-4">{{ t('admin.products.edit') }}</a>
                 <form method="POST" action="{{ url_for('admin_bank_delete', bank_id=bank.id) }}" class="inline"
                       onsubmit="return confirm('Remove this payment account?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button type="submit" class="text-red-400 hover:underline text-xs">{{ t('admin.products.delete') }}</button>
                 </form>
               </td>
@@ -1085,6 +1111,7 @@
       </h1>
 
       <form method="POST" enctype="multipart/form-data" class="glass rounded-2xl p-6 sm:p-8 space-y-5 max-w-xl">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div>
           <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Provider Name</label>
           <input type="text" name="bank_name" required placeholder="e.g. Telebirr, CBE, Bank of Abyssinia" value="{{ bank.bank_name if bank else '' }}"

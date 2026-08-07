@@ -11,6 +11,7 @@
     </div>
 
     <form method="POST" class="space-y-5">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div>
         <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Username</label>
         <input type="text" name="username" required autofocus

@@ -80,6 +80,7 @@
   <div class="glass rounded-2xl p-6 sm:p-8">
     <h3 class="font-serif text-lg text-danu-goldlight mb-3">Profile Settings</h3>
     <form action="/account/settings" method="POST" class="space-y-4">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div>
         <label class="text-xs text-danu-cream/60">Full name</label>
         <input type="text" name="full_name" value="{{ current_user.full_name }}" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none" />

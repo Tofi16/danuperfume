@@ -28,9 +28,16 @@
       <h1 class="hero-title font-serif text-3xl sm:text-6xl md:text-7xl leading-[1.05] text-[#f7e8be] drop-shadow-[0_2px_10px_rgba(0,0,0,0.75)] sm:text-gold-gradient mb-4 sm:mb-6 animate__animated animate__fadeInUp">
         {{ active_banner.title if active_banner else t('hero.title') }}
       </h1>
-      <p class="hero-subtitle text-danu-cream/70 text-sm sm:text-lg mb-6 sm:mb-10 max-w-xl mx-auto animate__animated animate__fadeInUp animate__delay-1s">
-        {{ active_banner.subtitle if active_banner else t('hero.subtitle') }}
-      </p>
+      <div class="hero-subtitle text-danu-cream/70 text-sm sm:text-lg mb-6 sm:mb-10 max-w-xl mx-auto min-h-[1.75em] animate__animated animate__fadeInUp animate__delay-1s"
+           x-data="heroSubtitleRotator([
+             {{ (active_banner.subtitle if active_banner and active_banner.subtitle else t('hero.subtitle')) | tojson }},
+             {{ t('hero.subtitle2') | tojson }},
+             {{ t('hero.subtitle3') | tojson }}
+           ])" x-init="start()">
+        <p x-show="visible" x-transition:enter="transition ease-out duration-700" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+           x-transition:leave="transition ease-in duration-500" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+           x-text="lines[index]"></p>
+      </div>
       <div class="hero-actions flex flex-col sm:flex-row items-center justify-center gap-4 animate__animated animate__fadeInUp animate__delay-1s">
         {% if active_banner and active_banner.cta_text %}
         <a href="{{ active_banner.cta_link or '#shop' }}" class="hero-cta btn-luxury rounded-full px-8 py-3 text-sm uppercase tracking-widest">{{ active_banner.cta_text }}</a>
@@ -96,8 +103,9 @@
         <div class="glass-card rounded-2xl overflow-hidden flex flex-col">
           <div class="product-img-wrap relative">
             <img :src="product.image_url || 'https://placehold.co/400x400/241329/cbb26a?text=Danu+Perfume'"
-                 :alt="product.name" class="w-full h-56 object-cover">
+                 :alt="product.name" loading="lazy" class="w-full h-56 object-cover">
             <span x-show="product.discount_price" class="badge-sale absolute top-3 left-3 bg-danu-gold text-danu-black text-[0.65rem] font-bold px-2 py-1 rounded-full uppercase">Sale</span>
+            <span x-show="product.is_new" class="badge-new absolute top-3 right-3 bg-gradient-to-r from-[#a68a4a] to-[#f2e6c4] text-danu-black text-[0.65rem] font-bold px-2 py-1 rounded-full uppercase tracking-wider shadow-lg">New</span>
             <span x-show="product.stock === 0" class="absolute inset-0 bg-black/60 flex items-center justify-center text-xs uppercase tracking-widest text-white">
               {{ t('shop.out_of_stock') }}
             </span>
@@ -336,6 +344,26 @@
 
 {% block extra_scripts %}
 <script>
+  // Part 4 of the review: cycles the hero subtitle through a few taglines
+  // with a soft fade, instead of one static line sitting there forever.
+  function heroSubtitleRotator(lines) {
+    return {
+      lines: lines.filter(Boolean),
+      index: 0,
+      visible: true,
+      start() {
+        if (this.lines.length <= 1) return;
+        setInterval(() => {
+          this.visible = false;
+          setTimeout(() => {
+            this.index = (this.index + 1) % this.lines.length;
+            this.visible = true;
+          }, 500);
+        }, 4500);
+      },
+    };
+  }
+
   function shopPage() {
     return {
       products: [],

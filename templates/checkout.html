@@ -56,6 +56,7 @@
 
       <form method="POST" enctype="multipart/form-data" class="glass rounded-2xl p-6 sm:p-8"
             x-data="{ fileName: '', selectedBank: {{ banks[0].id if banks else 'null' }}, deliveryType: '{{ delivery_options[0] }}', isGift: false }">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <input type="hidden" name="delivery_fee" value="{{ proposed_fee }}">
 
@@ -94,7 +95,7 @@
               <input type="hidden" name="post_office_location" :value="selectedName">
 
               <div x-show="open && results.length" x-cloak
-                   class="absolute z-30 mt-1 w-full glass rounded-lg max-h-56 overflow-y-auto shadow-2xl">
+                   class="absolute z-30 mt-1 w-full dropdown-panel rounded-lg max-h-56 overflow-y-auto shadow-2xl">
                 <template x-for="office in results" :key="office.name + office.city">
                   <button type="button"
                           @click="selectedName = office.name + ' — ' + office.city; query = selectedName; open = false"

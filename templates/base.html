@@ -7,6 +7,29 @@
 <meta name="description" content="{{ t('brand.tagline') }} — Danu Perfume &amp; Cosmo">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='19' fill='%23150a19' stroke='%23cbb26a' stroke-width='1.5'/%3E%3Ctext x='20' y='26' text-anchor='middle' font-family='Georgia,serif' font-size='16' fill='%23cbb26a'%3ED%26C%3C/text%3E%3C/svg%3E">
 
+<!-- SECURITY FIX (CSRF): a single site-wide token, read by the fetch() patch
+     below so every AJAX POST (cart, coupon, reviews, stock alerts, issue
+     reports) automatically carries it — no need to edit each fetch() call
+     individually across every template. -->
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<script>
+  (function () {
+    var token = document.querySelector('meta[name="csrf-token"]').content;
+    var originalFetch = window.fetch;
+    window.fetch = function (input, init) {
+      init = init || {};
+      var method = (init.method || 'GET').toUpperCase();
+      if (method !== 'GET' && method !== 'HEAD') {
+        init.headers = new Headers(init.headers || {});
+        if (!init.headers.has('X-CSRFToken')) {
+          init.headers.set('X-CSRFToken', token);
+        }
+      }
+      return originalFetch(input, init);
+    };
+  })();
+</script>
+
 <!-- Tailwind CSS via CDN -->
 <script src="https://cdn.tailwindcss.com"></script>
 <script>

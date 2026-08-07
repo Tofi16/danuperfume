@@ -33,6 +33,7 @@ from flask import (
 from flask_login import (
     LoginManager, login_user, logout_user, login_required, current_user
 )
+from flask_wtf.csrf import CSRFProtect, generate_csrf
 from cloudinary import config as cloudinary_config
 from cloudinary.uploader import upload as cloudinary_upload
 from cloudinary.utils import cloudinary_url
@@ -95,6 +96,12 @@ def create_app(env_name=None):
 
     # --- Initialize extensions ---
     db.init_app(app)
+
+    # SECURITY FIX: CSRF protection for every POST/PUT/DELETE form in the app
+    # (login, checkout, admin CRUD, etc.). `csrf_token()` is exposed to every
+    # template below so `{{ csrf_token() }}` can be dropped into any <form>.
+    csrf = CSRFProtect(app)
+    app.jinja_env.globals["csrf_token"] = generate_csrf
 
     login_manager = LoginManager()
     login_manager.login_view = "customer_login"
@@ -285,6 +292,18 @@ def create_app(env_name=None):
             db.session.add(row)
         db.session.commit()
 
+    def mask_phone(phone):
+        """SECURITY FIX: never send a customer's full phone number into a Telegram
+        chat that could be forwarded, screenshotted, or read by anyone with access
+        to the bot. Keeps the last 3 digits visible so the admin can still match
+        the order to the customer in the dashboard."""
+        if not phone:
+            return "—"
+        digits = phone.strip()
+        if len(digits) <= 4:
+            return "*" * len(digits)
+        return digits[:-7] + "***" + digits[-4:] if len(digits) > 7 else digits[:2] + "***" + digits[-2:]
+
     def send_telegram_message(text):
         """Fire-and-forget message to the admin's configured Telegram chat.
         Never raises — a Telegram outage must not block checkout or any
@@ -322,7 +341,10 @@ def create_app(env_name=None):
         lines = [
             "🛍️ <b>New Order — Danu Perfume &amp; Cosmo</b>",
             f"Order: <b>{order.order_code}</b>",
-            f"Customer: {order.customer_name} ({order.customer_phone})",
+            # SECURITY FIX: phone is masked before it ever leaves the server —
+            # the full number stays in the admin dashboard, not in a chat that
+            # can be forwarded or screenshotted (see checkout review, part 1).
+            f"Customer: {order.customer_name} ({mask_phone(order.customer_phone)})",
             f"City: {order.city or '—'}",
             f"Delivery: {order.delivery_type}",
             f"Total: {order.total_amount} ETB",
@@ -335,11 +357,11 @@ def create_app(env_name=None):
             pass  # outside a request context (e.g. a future cron job) — just skip the link
         message = "\n".join(lines)
 
-        # Attach the payment receipt image when one was uploaded, so the admin
-        # can verify the transfer straight from Telegram.
-        receipt_url = media_url(order.payment_screenshot) if order.payment_screenshot else None
-        if receipt_url and send_telegram_photo(receipt_url, message):
-            return
+        # SECURITY FIX: the payment receipt (which can contain a bank account
+        # number / IBAN) is deliberately NOT forwarded to Telegram anymore.
+        # Admins verify the receipt inside the dashboard, where it's behind
+        # login instead of sitting in a chat log. See notify_new_order_telegram
+        # docstring / part 1 of the review.
         send_telegram_message(message)
 
     # =========================================================
@@ -499,6 +521,7 @@ def create_app(env_name=None):
 
         products = query.order_by(Product.created_at.desc()).all()
 
+        new_arrival_cutoff = datetime.utcnow() - timedelta(days=14)
         result = []
         for p in products:
             result.append({
@@ -521,6 +544,10 @@ def create_app(env_name=None):
                 "base_notes": p.base_notes_list,
                 "average_rating": p.average_rating,
                 "review_count": len(p.approved_reviews),
+                # part 4 of the review: lets the storefront show a "NEW" ribbon
+                # on anything added in the last 14 days, without the client
+                # needing to parse/compare timestamps itself.
+                "is_new": bool(p.created_at and p.created_at >= new_arrival_cutoff),
             })
         return jsonify(result)
 
@@ -661,7 +688,7 @@ def create_app(env_name=None):
             send_telegram_message(
                 "⚠️ <b>Order Issue Reported</b>\n"
                 f"Order: <b>{order.order_code}</b>\n"
-                f"Customer: {order.customer_name} ({phone})\n"
+                f"Customer: {order.customer_name} ({mask_phone(phone)})\n"
                 f"Type: {issue_type.replace('_', ' ').title()}\n"
                 f"Details: {description}"
             )
@@ -981,10 +1008,23 @@ def create_app(env_name=None):
     # =========================================================
     # CUSTOMER ACCOUNT ROUTES (optional login on top of guest checkout)
     # =========================================================
-    def _username_is_reserved(username):
-        """Only the built-in admin usernames may be reserved for customer accounts."""
+    def _username_is_taken(username):
+        """
+        UPDATED (per request): usernames are no longer specially 'reserved' —
+        that gave a confusing warning even when the name was free. Instead this
+        checks both the admin (`users`) and customer (`customers`) tables, so a
+        username shows as taken the normal way once it's actually in use by
+        either account type — including after Danuta/Tofik register their own
+        admin accounts with their own strong passwords.
+        """
         normalized = (username or "").strip().lower()
-        return normalized in {"danuta", "tofik"}
+        if not normalized:
+            return False
+        if User.query.filter(func.lower(User.username) == normalized).first():
+            return True
+        if Customer.query.filter(func.lower(Customer.username) == normalized).first():
+            return True
+        return False
 
     @app.route("/register", methods=["GET", "POST"])
     def customer_register():
@@ -1002,10 +1042,7 @@ def create_app(env_name=None):
                 errors.append("Full name is required.")
             if not username or len(username) < 3:
                 errors.append("Username must be at least 3 characters.")
-            elif _username_is_reserved(username):
-                flash("That username is reserved for the admin account.", "warning")
-                return render_template("register.html", full_name=full_name, username=username)
-            elif Customer.query.filter(func.lower(Customer.username) == username.lower()).first():
+            elif _username_is_taken(username):
                 errors.append("That username is already taken — please choose another.")
             if len(password) < 6:
                 errors.append("Password must be at least 6 characters.")
@@ -1033,9 +1070,7 @@ def create_app(env_name=None):
         username = request.args.get("username", "").strip()
         if len(username) < 3:
             return jsonify({"available": False, "reason": "too_short"})
-        if _username_is_reserved(username):
-            return jsonify({"available": False, "reason": "reserved"})
-        taken = Customer.query.filter(func.lower(Customer.username) == username.lower()).first() is not None
+        taken = _username_is_taken(username)
         return jsonify({"available": not taken, "reason": "taken" if taken else None})
 
     @app.route("/admin/login")
@@ -1103,34 +1138,38 @@ def create_app(env_name=None):
             loyalty_remaining=loyalty_remaining,
         )
 
-        @app.route("/account/settings", methods=["POST"])
-        @login_required
-        def update_account_settings():
-            if not isinstance(current_user, Customer):
-                flash("Only customers can update these settings.", "error")
-                return redirect(url_for("customer_account"))
-
-            full_name = request.form.get("full_name", "").strip()
-            phone = request.form.get("phone", "").strip()
-            preferred_language = request.form.get("preferred_language")
-
-            if full_name:
-                current_user.full_name = full_name
-            current_user.phone = phone or None
-            current_user.preferred_language = preferred_language or None
-
-            try:
-                db.session.add(current_user)
-                db.session.commit()
-                # Also update session language immediately if changed
-                if preferred_language:
-                    session["lang"] = preferred_language
-                flash("Profile settings saved.", "success")
-            except Exception as exc:  # noqa: BLE001
-                db.session.rollback()
-                flash("Could not save settings — please try again.", "error")
-
+    # BUG FIX: this route used to be indented one level too deep, nested inside
+    # customer_account() and placed AFTER its `return` — meaning Flask never
+    # registered it at all, so the "Save" button on Profile Settings 404'd.
+    # It's now a normal top-level route like every other @app.route.
+    @app.route("/account/settings", methods=["POST"])
+    @login_required
+    def update_account_settings():
+        if not isinstance(current_user, Customer):
+            flash("Only customers can update these settings.", "error")
             return redirect(url_for("customer_account"))
+
+        full_name = request.form.get("full_name", "").strip()
+        phone = request.form.get("phone", "").strip()
+        preferred_language = request.form.get("preferred_language")
+
+        if full_name:
+            current_user.full_name = full_name
+        current_user.phone = phone or None
+        current_user.preferred_language = preferred_language or None
+
+        try:
+            db.session.add(current_user)
+            db.session.commit()
+            # Also update session language immediately if changed
+            if preferred_language:
+                session["lang"] = preferred_language
+            flash("Profile settings saved.", "success")
+        except Exception:  # noqa: BLE001
+            db.session.rollback()
+            flash("Could not save settings — please try again.", "error")
+
+        return redirect(url_for("customer_account"))
 
     # =========================================================
     # ADMIN ROUTES
@@ -2015,6 +2054,29 @@ def create_app(env_name=None):
         _init_db(app)
         print("Database initialized.")
 
+    @app.cli.command("reset-accounts")
+    def reset_accounts_command():
+        """
+        Flask CLI command: `flask reset-accounts`
+
+        Wipes EVERY existing admin (User) and customer (Customer) account, then
+        re-creates Danuta and Tofik fresh from ADMIN_PASSWORD_DANUTA /
+        ADMIN_PASSWORD_TOFIK — so you can set your own strong passwords in
+        Render's Environment tab first, then run this once via the Render Shell.
+
+        This does NOT touch orders, products, reviews, or anything else — only
+        the two account tables. Run it once, then remove/rotate this access if
+        you don't want it re-runnable later (or just don't call it again).
+        """
+        deleted_customers = Customer.query.delete()
+        deleted_admins = User.query.delete()
+        db.session.commit()
+        print(f"[Danu Perfume] Removed {deleted_admins} admin account(s) and {deleted_customers} customer account(s).")
+
+        _init_db(app)
+        print("[Danu Perfume] Danuta and Tofik re-created from ADMIN_PASSWORD_DANUTA / ADMIN_PASSWORD_TOFIK.")
+        print("[Danu Perfume] Done. Log in at /login with your new passwords.")
+
     def _ensure_schema(flask_app):
         """
         Safety net: if the model definitions gain new columns after the database
@@ -2122,8 +2184,30 @@ def create_app(env_name=None):
             )
             if missing_admin or Bank.query.count() == 0 or DeliveryZone.query.count() == 0 or PostOffice.query.count() == 0:
                 _init_db(app)
+
+            # SECURITY: if any admin password was auto-generated because the env
+            # var wasn't set (see config.py), print it ONCE now so whoever is
+            # watching the deploy logs can capture and store it — it will not be
+            # shown again and is never written to disk or committed to git.
+            if app.config.get("GENERATED_ADMIN_PASSWORDS"):
+                print("=" * 60, flush=True)
+                print("[Danu Perfume] ⚠️  Auto-generated admin password(s) —", flush=True)
+                print("set these as real env vars, then redeploy:", flush=True)
+                for env_key, pw in app.config["GENERATED_ADMIN_PASSWORDS"].items():
+                    print(f"    {env_key} = {pw}", flush=True)
+                print("=" * 60, flush=True)
         except Exception as exc:  # noqa: BLE001
             print(f"[Danu Perfume] Startup DB check skipped: {exc}")
+
+    # PERFORMANCE FIX (part 3 of the review): cache CSS/JS/uploaded images in the
+    # browser for a year. Safe because filenames for uploads are already unique
+    # (uuid4-based) and style.css/app assets should be cache-busted by
+    # redeploying with a new filename/version if they ever need to change fast.
+    @app.after_request
+    def add_static_cache_headers(response):
+        if request.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
 
     # Error handlers
     @app.errorhandler(404)

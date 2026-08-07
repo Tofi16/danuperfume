@@ -5,6 +5,7 @@ Loads values from the .env file using python-dotenv.
 """
 
 import os
+import secrets
 from dotenv import load_dotenv
 
 # Load environment variables from .env file at project root
@@ -17,6 +18,18 @@ class Config:
 
     # --- Security ---
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-fallback-secret-key")
+
+    # CSRF protection (Flask-WTF). Tokens are auto-injected via the
+    # `csrf_token()` Jinja helper once CSRFProtect(app) is initialized in app.py.
+    WTF_CSRF_ENABLED = True
+    WTF_CSRF_TIME_LIMIT = None  # tokens don't expire mid-checkout on a slow connection
+
+    # Session / auth cookie hardening.
+    SESSION_COOKIE_HTTPONLY = True      # JS (and any XSS) cannot read the session cookie
+    SESSION_COOKIE_SAMESITE = "Lax"     # blocks the cookie being sent on cross-site POSTs
+    SESSION_COOKIE_SECURE = os.environ.get("FLASK_ENV", "production") == "production"
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SECURE = os.environ.get("FLASK_ENV", "production") == "production"
 
     # --- Database (Neon PostgreSQL in production; SQLite fallback for local dev) ---
     SQLALCHEMY_DATABASE_URI = os.environ.get(
@@ -42,11 +55,27 @@ class Config:
     CLOUDINARY_API_SECRET = os.environ.get("CLOUDINARY_API_SECRET")
 
     # --- Default Admin Accounts (created automatically on first run) ---
+    # SECURITY: no hardcoded fallback password anymore ("#Danu1122" was sitting in
+    # the public GitHub repo, which meant anyone could log in as Danuta if the env
+    # var was ever unset). If ADMIN_PASSWORD_DANUTA / ADMIN_PASSWORD_TOFIK aren't
+    # set in the environment, a random password is generated at startup and
+    # printed ONCE to the server logs, so there's never a guessable default.
+    GENERATED_ADMIN_PASSWORDS = {}  # populated at startup if any env var was missing
+
+    @staticmethod
+    def _admin_password(env_key):
+        pw = os.environ.get(env_key)
+        if pw:
+            return pw
+        generated = secrets.token_urlsafe(9)
+        Config.GENERATED_ADMIN_PASSWORDS[env_key] = generated
+        return generated
+
     # Each tuple: (username, full_name, password, role)
     # role: "super_admin" (full access) or "order_manager" (orders/delivery only)
     ADMIN_ACCOUNTS = [
-        ("Danuta", "Danuta", os.environ.get("ADMIN_PASSWORD_DANUTA", "#Danu1122"), "super_admin"),
-        ("Tofik", "Tofik", os.environ.get("ADMIN_PASSWORD_TOFIK", "#Danu1122"), "order_manager"),
+        ("Danuta", "Danuta", _admin_password.__func__("ADMIN_PASSWORD_DANUTA"), "super_admin"),
+        ("Tofik", "Tofik", _admin_password.__func__("ADMIN_PASSWORD_TOFIK"), "order_manager"),
     ]
 
     # --- i18n ---
@@ -76,6 +105,7 @@ class Config:
 
 class DevelopmentConfig(Config):
     DEBUG = True
+    SESSION_COOKIE_SECURE = False  # localhost is plain http, so this must stay off
 
 
 class ProductionConfig(Config):

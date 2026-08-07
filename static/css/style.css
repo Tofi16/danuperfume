@@ -137,6 +137,25 @@ main {
   box-shadow: var(--shadow-gold);
 }
 
+/* UI FIX (part 1 & 2 of the review): the post-office autocomplete dropdown
+   used `.glass`, which is only 6% opaque — the "DELIVERY ADDRESS" label behind
+   it bled straight through the suggestion text. This variant is nearly solid
+   so results are always readable, while keeping the same blur/border language. */
+.dropdown-panel {
+  background: rgba(24, 13, 28, 0.97);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(201, 162, 75, 0.35);
+  box-shadow: var(--shadow-sm);
+}
+
+/* UI FIX (part 2 of the review): placeholder text (e.g. "Search city or office
+   name...") was too close to the background color to read comfortably. */
+::placeholder {
+  color: rgba(237, 228, 209, 0.42);
+  opacity: 1;
+}
+
 /* ---------------- Gold Gradient Text / Buttons ---------------- */
 .text-gold-gradient {
   background: linear-gradient(120deg, #a68a4a, #f2e6c4 45%, #cbb26a 75%, #8a6f3a);
@@ -159,6 +178,9 @@ main {
   color: #150a19;
   font-weight: 600;
   letter-spacing: 0.05em;
+  /* Resting glow (part 2 of the review) so gold buttons feel "elevated" even
+     before the pointer reaches them, not only on :hover. */
+  box-shadow: 0 4px 15px -4px rgba(212, 175, 55, 0.3);
   transition: background-position 0.6s ease, transform 0.3s var(--ease-luxury), box-shadow 0.3s ease;
 }
 
