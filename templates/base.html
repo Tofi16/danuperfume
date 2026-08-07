@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="{{ current_lang }}" class="scroll-smooth">
 <head>
+<!-- GOLDEN IDEA #1 (Day/Night Theme): resolved synchronously, before any CSS
+     paints, so there's never a flash of the wrong theme on load. Priority:
+     saved user choice > time-of-day (18:00–06:00 = night). -->
+<script>
+  (function () {
+    var saved = localStorage.getItem('danu-theme');
+    var hour = new Date().getHours();
+    var theme = saved || ((hour >= 18 || hour < 6) ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}Danu Perfume &amp; Cosmo — {{ t('brand.tagline') }}{% endblock %}</title>
@@ -137,6 +148,17 @@
     <div class="flex items-center gap-3 sm:gap-5">
 
       <!-- Language selector moved to customer profile (account page) -->
+
+      <!-- Day/Night Theme Toggle (golden idea #1) -->
+      <button @click="window.danuToggleTheme && window.danuToggleTheme()" id="themeToggleBtn"
+              class="p-2 rounded-full hover:bg-danu-gold/10 transition-colors" title="Toggle day/night theme" aria-label="Toggle theme">
+        <svg id="themeIconMoon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-danu-goldlight" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+        </svg>
+        <svg id="themeIconSun" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-danu-goldlight hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+        </svg>
+      </button>
 
       <!-- Account -->
       {% if current_user.is_authenticated %}
@@ -413,6 +435,77 @@
     document.addEventListener("mousedown", () => cursor.classList.add("pressed"));
     document.addEventListener("mouseup", () => cursor.classList.remove("pressed"));
   })();
+
+  /* ---------------- Golden idea #1: Day/Night theme toggle ---------------- */
+  (function () {
+    function syncIcons() {
+      var isLight = document.documentElement.getAttribute("data-theme") === "light";
+      var moon = document.getElementById("themeIconMoon");
+      var sun = document.getElementById("themeIconSun");
+      if (moon && sun) {
+        moon.classList.toggle("hidden", isLight);
+        sun.classList.toggle("hidden", !isLight);
+      }
+    }
+    window.danuToggleTheme = function () {
+      var current = document.documentElement.getAttribute("data-theme");
+      var next = current === "light" ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("danu-theme", next);
+      syncIcons();
+    };
+    document.addEventListener("DOMContentLoaded", syncIcons);
+  })();
+
+  /* ---------------- Golden idea #9: ambient micro-sound (optional) ----------
+     A tiny synthesized chime (Web Audio API — no audio file to host/load) that
+     plays on "add to cart". Off by default; the mute state is remembered. */
+  (function () {
+    var enabled = localStorage.getItem("danu-sound") === "on";
+    var ctx = null;
+    function ensureCtx() {
+      if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+      return ctx;
+    }
+    window.danuPlayChime = function () {
+      if (!enabled) return;
+      try {
+        var audioCtx = ensureCtx();
+        var osc = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1320, audioCtx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.001, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.08, audioCtx.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.4);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.4);
+      } catch (e) { /* ambient sound is a nice-to-have, never block the UI on failure */ }
+    };
+    window.danuToggleSound = function () {
+      enabled = !enabled;
+      localStorage.setItem("danu-sound", enabled ? "on" : "off");
+      var icon = document.getElementById("soundToggleBtn");
+      if (icon) icon.classList.toggle("sound-on", enabled);
+      if (enabled) window.danuPlayChime();
+    };
+    document.addEventListener("DOMContentLoaded", function () {
+      var icon = document.getElementById("soundToggleBtn");
+      if (icon) icon.classList.toggle("sound-on", enabled);
+    });
+  })();
+
+  /* ---------------- Golden idea #3: splash screen ---------------- */
+  window.addEventListener("load", function () {
+    var splash = document.getElementById("danuSplash");
+    if (!splash) return;
+    setTimeout(function () {
+      splash.classList.add("splash-leaving");
+      setTimeout(function () { splash.remove(); }, 600);
+    }, 500);
+  });
 </script>
 
 {% block extra_scripts %}{% endblock %}

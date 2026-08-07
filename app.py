@@ -2353,7 +2353,7 @@ def create_app(env_name=None):
             all_models = (
                 User, Customer, ActivityLog, Category, Product, ProductImage, Review, StockAlert,
                 Bank, DeliveryZone, Coupon, LoyaltyAccount, Banner, PostOffice, Order, OrderItem,
-                OrderIssueReport,
+                OrderIssueReport, DailySummary, AppSetting,
             )
             for model in all_models:
                 table_name = model.__tablename__
