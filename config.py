@@ -73,10 +73,7 @@ class Config:
 
     # Each tuple: (username, full_name, password, role)
     # role: "super_admin" (full access) or "order_manager" (orders/delivery only)
-    ADMIN_ACCOUNTS = [
-        ("Danuta", "Danuta", _admin_password.__func__("ADMIN_PASSWORD_DANUTA"), "super_admin"),
-        ("Tofik", "Tofik", _admin_password.__func__("ADMIN_PASSWORD_TOFIK"), "order_manager"),
-    ]
+    ADMIN_ACCOUNTS = []
 
     # --- i18n ---
     LANGUAGES = ["en", "am", "om", "ti"]
@@ -111,6 +108,12 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     DEBUG = False
 
+
+# Build the admin account tuples once the Config class is defined.
+Config.ADMIN_ACCOUNTS = [
+    ("Danuta", "Danuta", Config._admin_password("ADMIN_PASSWORD_DANUTA"), "super_admin"),
+    ("Tofik", "Tofik", Config._admin_password("ADMIN_PASSWORD_TOFIK"), "order_manager"),
+]
 
 config_by_name = {
     "development": DevelopmentConfig,
