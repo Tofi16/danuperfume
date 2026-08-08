@@ -32,6 +32,24 @@
 <meta name="description" content="{{ t('brand.tagline') }} — Danu Perfume &amp; Cosmo">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='19' fill='%23150a19' stroke='%23cbb26a' stroke-width='1.5'/%3E%3Ctext x='20' y='26' text-anchor='middle' font-family='Georgia,serif' font-size='16' fill='%23cbb26a'%3ED%26C%3C/text%3E%3C/svg%3E">
 
+<!-- ==========================================================================
+     Mobile "Install App" support (PWA)
+     manifest.json + these meta tags are what let Android Chrome and iOS
+     Safari offer a real "Add to Home Screen" / "Install App" experience —
+     an icon on the phone's home screen that opens full-screen, no browser
+     address bar. See install-app.js below for the in-page install button
+     that triggers this on Android, and the manual-steps card for iOS
+     (Safari doesn't expose an install-prompt API, so it must be manual).
+     ========================================================================== */
+<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+<meta name="theme-color" content="#150a19" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#faf6ef" media="(prefers-color-scheme: light)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Danu Perfume">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+
 <!-- SECURITY FIX (CSRF): a single site-wide token, read by the fetch() patch
      below so every AJAX POST (cart, coupon, reviews, stock alerts, issue
      reports) automatically carries it — no need to edit each fetch() call
@@ -104,7 +122,7 @@
      logo appeared broken: the browser was still using cached CSS that
      predated those fixes). Bump the version number on every deploy that
      changes style.css. -->
-<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=3">
 
 {% block extra_head %}{% endblock %}
 <!-- Mobile zoom lock safeguard (optional) -->
@@ -178,16 +196,32 @@
 <!-- Custom champagne-drop cursor (desktop only, CSS hides it on touch) -->
 <div class="cursor-drop" id="cursorDrop"></div>
 
-<!-- Golden idea #9: ambient sound toggle -->
-<button onclick="window.danuToggleSound && window.danuToggleSound()" id="soundToggleBtn"
-        class="sound-toggle-btn" title="Toggle sound effects" aria-label="Toggle sound">
-  <svg class="icon-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-    <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.59-.71-1.59-1.59v-4.32c0-.88.71-1.59 1.59-1.59h2.24z" />
-  </svg>
-  <svg class="icon-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-    <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 9.75L19.5 12m0 0l2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.59-.71-1.59-1.59v-4.32c0-.88.71-1.59 1.59-1.59h2.24z" />
-  </svg>
-</button>
+<!-- ============ Install App (PWA) ============
+     Android/desktop Chrome: a real native install prompt, triggered by this
+     button via the captured beforeinstallprompt event (installPromptEvent).
+     iOS Safari: no install-prompt API exists at all, so instead this opens a
+     small card with the manual "Share → Add to Home Screen" steps. Hidden
+     entirely once the app is already installed (standalone display mode) or
+     if the browser never fires beforeinstallprompt and isn't iOS Safari
+     (desktop non-Chrome, in-app browsers, etc. — installing there isn't
+     meaningfully supported, so no point showing a button that won't work). -->
+<div x-data="installAppWidget()" x-init="init()" x-show="showButton" x-cloak style="display:none;">
+  <button @click="promptInstall()" class="install-app-btn" title="Install Danu Perfume app" aria-label="Install app">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v13m0 0l-4-4m4 4l4-4M5 19h14" />
+    </svg>
+    <span>{{ t('install.button')|default('Install App') }}</span>
+  </button>
+
+  <!-- iOS manual-steps card -->
+  <div x-show="showIosSheet" x-cloak x-transition class="install-ios-sheet" @click.outside="showIosSheet = false" style="display:none;">
+    <p class="install-ios-title">Install Danu Perfume</p>
+    <p class="install-ios-step">1. Tap the <strong>Share</strong> icon <span class="install-ios-icon">⬆︎</span> in Safari's toolbar</p>
+    <p class="install-ios-step">2. Scroll down and tap <strong>Add to Home Screen</strong></p>
+    <p class="install-ios-step">3. Tap <strong>Add</strong> — the app icon appears on your home screen</p>
+    <button @click="showIosSheet = false" class="install-ios-close">Got it</button>
+  </div>
+</div>
 
 <!-- Toast notification stack -->
 <div class="toast-stack" id="toastStack"></div>
@@ -448,7 +482,10 @@
         });
         await this.fetchCart();
         if (window.danuToast) window.danuToast("{{ t('shop.add_to_cart') }} ✓");
-        if (window.danuPlayChime) window.danuPlayChime();
+        // Chime now plays via the global .btn-luxury delegated click listener
+        // (see the ambient micro-sound block), so no explicit call is needed
+        // here — avoids double-playing when addToCart() is triggered by a
+        // .btn-luxury button, which is every call site in this app.
         const cartBtn = document.getElementById("cartBtn");
         if (cartBtn) {
           cartBtn.classList.remove("cart-bump");
@@ -613,18 +650,21 @@
     document.addEventListener("DOMContentLoaded", syncIcons);
   })();
 
-  /* ---------------- Golden idea #9: ambient micro-sound (optional) ----------
-     A tiny synthesized chime (Web Audio API — no audio file to host/load) that
-     plays on "add to cart". Off by default; the mute state is remembered. */
+  /* ---------------- Ambient micro-sound (always on, no visible toggle) ------
+     A tiny synthesized chime (Web Audio API — no audio file to host/load)
+     that plays on interactions like "add to cart". Previously required a
+     visible toggle button to opt in (off by default); now it plays
+     automatically since there's no UI control for it. The AudioContext still
+     only starts on the first real click (browsers require a user gesture to
+     unlock audio), so this remains fully autoplay-policy compliant — the
+     first "Add to Cart" tap is that gesture. */
   (function () {
-    var enabled = localStorage.getItem("danu-sound") === "on";
     var ctx = null;
     function ensureCtx() {
       if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
       return ctx;
     }
     window.danuPlayChime = function () {
-      if (!enabled) return;
       try {
         var audioCtx = ensureCtx();
         var osc = audioCtx.createOscillator();
@@ -640,16 +680,12 @@
         osc.stop(audioCtx.currentTime + 0.4);
       } catch (e) { /* ambient sound is a nice-to-have, never block the UI on failure */ }
     };
-    window.danuToggleSound = function () {
-      enabled = !enabled;
-      localStorage.setItem("danu-sound", enabled ? "on" : "off");
-      var icon = document.getElementById("soundToggleBtn");
-      if (icon) icon.classList.toggle("sound-on", enabled);
-      if (enabled) window.danuPlayChime();
-    };
-    document.addEventListener("DOMContentLoaded", function () {
-      var icon = document.getElementById("soundToggleBtn");
-      if (icon) icon.classList.toggle("sound-on", enabled);
+    // Play the chime on primary action buttons site-wide (Add to Cart, Submit
+    // Review, Apply Filters, etc.) via one delegated listener, rather than
+    // wiring danuPlayChime() into every individual button — this also
+    // automatically covers new .btn-luxury buttons added later.
+    document.addEventListener("click", function (e) {
+      if (e.target.closest(".btn-luxury")) window.danuPlayChime();
     });
   })();
 
@@ -675,6 +711,69 @@
     setTimeout(dismissSplash, 350);
   }
   setTimeout(dismissSplash, 2500); // hard safety cap either way
+
+  /* ---------------- Install App (PWA): service worker + install prompt ----
+     1. Registers sw.js so the browser recognizes this as an installable app
+        (a prerequisite for Chrome's beforeinstallprompt to ever fire).
+     2. Captures beforeinstallprompt instead of letting Chrome show its own
+        generic mini-infobar, so the branded "Install App" button controls
+        exactly when/how the native prompt appears.
+     3. iOS Safari never fires beforeinstallprompt (no such API exists there),
+        so on iOS the button instead opens a small manual-steps card. */
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("{{ url_for('static', filename='sw.js') }}").catch(function () {
+        /* installability is a nice-to-have enhancement, never block the page on failure */
+      });
+    });
+  }
+
+  window.installAppWidget = function () {
+    return {
+      showButton: false,
+      showIosSheet: false,
+      deferredPrompt: null,
+      isIos: false,
+      init() {
+        this.isIos = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+        const isStandalone =
+          window.matchMedia("(display-mode: standalone)").matches ||
+          window.navigator.standalone === true; // iOS-specific standalone flag
+
+        if (isStandalone) return; // already installed — never show the button
+
+        if (this.isIos) {
+          // iOS: no install-prompt event will ever fire, so just show the
+          // button now; tapping it opens the manual Share-sheet instructions.
+          this.showButton = true;
+          return;
+        }
+
+        window.addEventListener("beforeinstallprompt", (e) => {
+          e.preventDefault(); // stop Chrome's own mini-infobar
+          this.deferredPrompt = e;
+          this.showButton = true;
+        });
+
+        window.addEventListener("appinstalled", () => {
+          this.showButton = false;
+          this.deferredPrompt = null;
+          if (window.danuToast) window.danuToast("Danu Perfume installed ✓");
+        });
+      },
+      async promptInstall() {
+        if (this.isIos) {
+          this.showIosSheet = true;
+          return;
+        }
+        if (!this.deferredPrompt) return;
+        this.deferredPrompt.prompt();
+        const { outcome } = await this.deferredPrompt.userChoice;
+        this.deferredPrompt = null;
+        if (outcome === "accepted") this.showButton = false;
+      },
+    };
+  };
 </script>
 
 {% block extra_scripts %}{% endblock %}

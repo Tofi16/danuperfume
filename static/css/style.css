@@ -257,9 +257,11 @@ main {
   box-shadow: 0 6px 20px -6px rgba(156, 122, 46, 0.45);
 }
 
-/* Scrollbar */
-[data-theme="light"] ::-webkit-scrollbar-track { background: #f1e9da; }
-[data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(156, 122, 46, 0.45); }
+/* Scrollbar (desktop only — see the main ::-webkit-scrollbar rule for why) */
+@media (hover: hover) and (pointer: fine) {
+  [data-theme="light"] ::-webkit-scrollbar-track { background: #f1e9da; }
+  [data-theme="light"] ::-webkit-scrollbar-thumb { background: rgba(156, 122, 46, 0.45); }
+}
 
 /* ---------------- Golden idea #3: splash screen ---------------- */
 .danu-splash {
@@ -331,22 +333,6 @@ main {
   background: linear-gradient(90deg, #b8383f, #e0555c);
 }
 
-/* ---------------- Checkout: compact delivery-method chip ---------------- */
-.delivery-chip {
-  border: 1px solid rgba(203, 178, 106, 0.2);
-  background: rgba(255, 255, 255, 0.02);
-  color: rgba(237, 228, 209, 0.65);
-  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
-  min-height: 56px;
-}
-.delivery-chip.active {
-  border-color: var(--danu-gold);
-  background: rgba(203, 178, 106, 0.1);
-  color: var(--danu-gold-light);
-}
-[data-theme="light"] .delivery-chip { background: rgba(156, 122, 46, 0.04); }
-[data-theme="light"] .delivery-chip.active { background: rgba(156, 122, 46, 0.12); }
-
 /* Golden idea: hero CTA buttons can carry long admin-entered promo text
    (e.g. long Amharic phrases) — instead of an ugly ragged 2-line wrap,
    balance the break point and let the font size flex a touch. */
@@ -402,41 +388,6 @@ main {
 [data-season="eid"] { --danu-gold: #1f8a5f; --danu-gold-light: #cbb26a; }
 [data-season="valentine"] { --danu-gold: #c9587a; --danu-gold-light: #e9b8c8; }
 [data-season="valentine"] .btn-luxury { background: linear-gradient(120deg, #8a3050, #e9b8c8, #8a3050); background-size: 200% auto; }
-
-/* ---------------- Golden idea #9: sound toggle button ---------------- */
-.sound-toggle-btn {
-  position: fixed;
-  bottom: 22px;
-  left: 22px;
-  z-index: 40;
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(21, 10, 25, 0.55);
-  border: 1px solid rgba(203, 178, 106, 0.3);
-  backdrop-filter: blur(10px);
-  color: rgba(237, 228, 209, 0.55);
-  cursor: pointer;
-  transition: color 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
-}
-[data-theme="light"] .sound-toggle-btn {
-  background: rgba(255, 255, 255, 0.7);
-  color: rgba(36, 19, 41, 0.5);
-}
-.sound-toggle-btn:hover { transform: scale(1.08); }
-.sound-toggle-btn svg { width: 18px; height: 18px; }
-.sound-toggle-btn .icon-on { display: none; }
-.sound-toggle-btn .icon-off { display: block; }
-.sound-toggle-btn.sound-on { color: #cbb26a; border-color: rgba(203, 178, 106, 0.6); }
-.sound-toggle-btn.sound-on .icon-on { display: block; }
-.sound-toggle-btn.sound-on .icon-off { display: none; }
-@media (max-width: 640px) {
-  .sound-toggle-btn { bottom: 16px; left: 16px; width: 36px; height: 36px; }
-}
-
 
 .glass {
   background: rgba(255, 255, 255, 0.06);
@@ -639,16 +590,31 @@ html.no-js .fade-up {
   filter: none;
 }
 
-/* ---------------- Custom scrollbar ---------------- */
-::-webkit-scrollbar {
-  width: 8px;
+/* ---------------- Custom scrollbar (desktop only) ---------------- */
+/* Restricted to fine-pointer/hover-capable devices — on mobile Chrome/Safari,
+   custom ::-webkit-scrollbar styling (especially a gradient thumb) can render
+   far wider and more prominent than the declared 8px, showing up as a thick
+   vertical bar down the edge of the screen that behaves inconsistently while
+   scrolling. Touch devices get the OS's native auto-hiding scroll indicator
+   instead, which is both more reliable and more familiar on mobile anyway. */
+@media (hover: hover) and (pointer: fine) {
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--danu-black);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--danu-gold), #7d6534);
+    border-radius: 999px;
+  }
 }
-::-webkit-scrollbar-track {
-  background: var(--danu-black);
-}
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, var(--danu-gold), #7d6534);
-  border-radius: 999px;
+@media (hover: none), (pointer: coarse) {
+  ::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 }
 
 /* ---------------- Modal backdrop ---------------- */
@@ -730,6 +696,23 @@ input:focus, textarea:focus, select:focus {
 .badge-delivered { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.4); }
 .badge-cancelled { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.4); }
 
+/* ---------------- Checkout: compact delivery-method chip ---------------- */
+.delivery-chip {
+  border: 1px solid rgba(203, 178, 106, 0.2);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(237, 228, 209, 0.65);
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+  min-height: 56px;
+}
+.delivery-chip.active {
+  border-color: var(--danu-gold);
+  background: rgba(203, 178, 106, 0.1);
+  color: var(--danu-gold-light);
+}
+[data-theme="light"] .delivery-chip { background: rgba(156, 122, 46, 0.04); }
+[data-theme="light"] .delivery-chip.active { background: rgba(156, 122, 46, 0.12); }
+
+
 /* ==========================================================================
    Phase 2 additions — logo flourish, toast, cursor, mesh bg, timeline, etc.
    ========================================================================== */
@@ -749,6 +732,94 @@ input:focus, textarea:focus, select:focus {
   40%  { opacity: 0.85; }
   100% { opacity: 0; transform: scale(1) translateY(-6px); }
 }
+
+/* ---------------- Install App (PWA) button + iOS instructions sheet ---------------- */
+.install-app-btn {
+  position: fixed;
+  bottom: 22px;
+  left: 22px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem 0.6rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(21, 10, 25, 0.7);
+  border: 1px solid rgba(203, 178, 106, 0.35);
+  backdrop-filter: blur(10px);
+  color: var(--danu-gold-light);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.25s var(--ease-luxury), box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.install-app-btn svg { width: 17px; height: 17px; flex-shrink: 0; }
+.install-app-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-gold);
+  border-color: rgba(203, 178, 106, 0.6);
+}
+[data-theme="light"] .install-app-btn {
+  background: rgba(255, 255, 255, 0.85);
+  color: #9c7a2e;
+  border-color: rgba(156, 122, 46, 0.3);
+}
+@media (max-width: 640px) {
+  .install-app-btn { bottom: 16px; left: 16px; padding: 0.55rem 0.9rem 0.55rem 0.65rem; font-size: 0.68rem; }
+  .install-app-btn span { display: none; } /* icon-only on very small screens to avoid crowding */
+}
+
+.install-ios-sheet {
+  position: fixed;
+  bottom: 74px;
+  left: 16px;
+  right: 16px;
+  max-width: 320px;
+  z-index: 41;
+  background: rgba(21, 10, 25, 0.96);
+  border: 1px solid rgba(203, 178, 106, 0.3);
+  border-radius: 1rem;
+  padding: 1.1rem 1.2rem;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 20px 60px -12px rgba(0, 0, 0, 0.6);
+}
+.install-ios-title {
+  font-family: "Playfair Display", serif;
+  color: var(--danu-gold-light);
+  font-size: 1rem;
+  margin-bottom: 0.6rem;
+}
+.install-ios-step {
+  font-size: 0.78rem;
+  color: rgba(237, 228, 209, 0.8);
+  line-height: 1.5;
+  margin-bottom: 0.35rem;
+}
+.install-ios-icon { display: inline-block; }
+.install-ios-close {
+  margin-top: 0.6rem;
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(203, 178, 106, 0.4);
+  color: var(--danu-gold-light);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.install-ios-close:hover { background: rgba(203, 178, 106, 0.1); }
+[data-theme="light"] .install-ios-sheet {
+  background: rgba(255, 255, 255, 0.97);
+  border-color: rgba(156, 122, 46, 0.3);
+}
+[data-theme="light"] .install-ios-title { color: #9c7a2e; }
+[data-theme="light"] .install-ios-step { color: rgba(36, 19, 41, 0.75); }
+[data-theme="light"] .install-ios-close { color: #9c7a2e; border-color: rgba(156, 122, 46, 0.4); }
 
 /* ---------------- Ambient plum-gold mesh background (non-hero pages) ---------------- */
 /* iOS Safari repaints a `position:fixed` element on every scroll tick unless
@@ -1169,6 +1240,15 @@ button, a, input, select, textarea, .btn-luxury {
   box-shadow: 0 10px 40px rgba(0,0,0,0.6);
 }
 .mobile-nav-panel a { display: block; padding: 0.6rem 1rem; }
+
+/* Light theme parity — this panel was previously hardcoded to a dark plum
+   background regardless of the day/night toggle, so switching to light mode
+   never changed it (the exact "outside light/dark control" bug reported). */
+[data-theme="light"] .mobile-nav-panel {
+  background: rgba(250, 246, 239, 0.98);
+  border-bottom-color: rgba(156, 122, 46, 0.15);
+  box-shadow: 0 10px 40px rgba(90, 70, 40, 0.18);
+}
 
 /* ensure header options hidden on small screens (already mostly hidden) */
 .hidden-mobile { display: none !important; }
