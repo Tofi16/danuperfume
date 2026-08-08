@@ -147,17 +147,24 @@
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="glass rounded-2xl p-6">
           <h3 class="font-serif text-lg text-danu-goldlight mb-4">Recent Orders</h3>
-          <div class="space-y-3">
+          <div class="space-y-2">
             {% for o in recent_orders %}
-            <a href="{{ url_for('admin_order_detail', order_id=o.id) }}" class="flex items-center justify-between admin-row rounded-lg px-3 py-2 -mx-3">
-              <div>
-                <p class="text-sm">{{ o.order_code }}</p>
-                <p class="text-xs text-danu-cream/50">{{ o.customer_name }}</p>
+            <a href="{{ url_for('admin_order_detail', order_id=o.id) }}" class="flex items-center gap-3 admin-row rounded-lg px-3 py-2.5 -mx-3">
+              <div class="order-avatar shrink-0">{{ (o.customer_name or '?')[0]|upper }}</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <p class="text-sm truncate">{{ o.customer_name }}</p>
+                  <span class="text-[0.65rem] text-danu-cream/40 shrink-0 time-ago" data-created="{{ o.created_at.isoformat() }}Z">{{ o.created_at.strftime('%d %b') }}</span>
+                </div>
+                <p class="text-xs text-danu-cream/50 truncate">{{ o.order_code }}</p>
               </div>
-              <span class="text-xs px-2 py-1 rounded-full
-                {% if o.status == 'Pending' %}badge-pending{% elif o.status == 'Approved' %}badge-approved
-                {% elif o.status == 'Out for Delivery' %}badge-delivery{% elif o.status == 'Delivered' %}badge-delivered
-                {% else %}badge-cancelled{% endif %}">{{ o.status }}</span>
+              <div class="text-right shrink-0">
+                <p class="text-sm text-danu-goldlight whitespace-nowrap">{{ currency }} {{ "%.0f"|format(o.total_amount) }}</p>
+                <span class="text-[0.65rem] px-2 py-0.5 rounded-full inline-block mt-0.5
+                  {% if o.status == 'Pending' %}badge-pending{% elif o.status == 'Approved' %}badge-approved
+                  {% elif o.status == 'Out for Delivery' %}badge-delivery{% elif o.status == 'Delivered' %}badge-delivered
+                  {% else %}badge-cancelled{% endif %}">{{ o.status }}</span>
+              </div>
             </a>
             {% else %}
             <p class="text-sm text-danu-cream/40">No orders yet.</p>
@@ -167,11 +174,16 @@
 
         <div class="glass rounded-2xl p-6">
           <h3 class="font-serif text-lg text-danu-goldlight mb-4">Low Stock Products</h3>
-          <div class="space-y-3">
+          <div class="space-y-4">
             {% for p in low_stock_products %}
-            <div class="flex items-center justify-between px-1 py-2">
-              <p class="text-sm">{{ p.name }}</p>
-              <span class="text-xs text-red-400">{{ p.stock }} left</span>
+            <div class="px-1">
+              <div class="flex items-center justify-between mb-1.5">
+                <p class="text-sm">{{ p.name }}</p>
+                <span class="text-xs {% if p.stock <= 2 %}text-red-400{% else %}text-amber-400{% endif %} font-medium">{{ p.stock }} left</span>
+              </div>
+              <div class="stock-urgency-track">
+                <div class="stock-urgency-fill {% if p.stock <= 2 %}critical{% endif %}" style="width: {{ [(p.stock / 5 * 100), 100] | min }}%"></div>
+              </div>
             </div>
             {% else %}
             <p class="text-sm text-danu-cream/40">Stock levels look healthy.</p>
@@ -179,6 +191,25 @@
           </div>
         </div>
       </div>
+
+      <script>
+        // Golden idea: relative "time ago" labels for recent orders, computed
+        // client-side so the server can stay a plain Jinja render.
+        document.addEventListener("DOMContentLoaded", () => {
+          document.querySelectorAll(".time-ago").forEach((el) => {
+            const created = new Date(el.dataset.created);
+            const diffMs = Date.now() - created.getTime();
+            const mins = Math.floor(diffMs / 60000);
+            let label;
+            if (mins < 1) label = "just now";
+            else if (mins < 60) label = mins + "m ago";
+            else if (mins < 1440) label = Math.floor(mins / 60) + "h ago";
+            else if (mins < 43200) label = Math.floor(mins / 1440) + "d ago";
+            else label = el.textContent; // fall back to the printed date for old orders
+            el.textContent = label;
+          });
+        });
+      </script>
 
       {% elif view == 'products' %}
       <!-- ================= PRODUCTS LIST ================= -->
@@ -646,6 +677,30 @@
           <button type="submit" class="text-xs px-4 py-2 rounded-full border border-danu-gold/30 text-danu-gold hover:bg-danu-gold/10">
             Send Test Message
           </button>
+        </form>
+      </div>
+
+      <!-- ================= SETTINGS — SEASONAL THEME (golden idea #8) ================= -->
+      <div class="glass rounded-2xl p-6 sm:p-8 max-w-xl mt-6">
+        <h3 class="font-serif text-lg text-danu-goldlight mb-2">Seasonal Theme</h3>
+        <p class="text-xs text-danu-cream/50 mb-5">
+          Swaps just the accent color across the site for a holiday/promo period — the
+          layout and photography stay the same, so it never feels like a full redesign.
+        </p>
+        <form method="POST" action="{{ url_for('admin_settings_seasonal_theme') }}" class="space-y-4">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div>
+            <label class="text-xs uppercase tracking-widest text-danu-gold mb-1 block">Active Theme</label>
+            <select name="seasonal_theme" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
+              <option value="none" {% if seasonal_theme == 'none' %}selected{% endif %}>None — standard gold</option>
+              <option value="christmas" {% if seasonal_theme == 'christmas' %}selected{% endif %}>🎄 Christmas / New Year (red &amp; green accents)</option>
+              <option value="eid" {% if seasonal_theme == 'eid' %}selected{% endif %}>🌙 Eid (emerald &amp; gold accents)</option>
+              <option value="valentine" {% if seasonal_theme == 'valentine' %}selected{% endif %}>💛 Valentine's (rose &amp; gold accents)</option>
+            </select>
+          </div>
+          <div class="flex gap-3 pt-2">
+            <button type="submit" class="btn-luxury rounded-full px-6 py-2.5 text-xs uppercase tracking-widest">Apply Theme</button>
+          </div>
         </form>
       </div>
 

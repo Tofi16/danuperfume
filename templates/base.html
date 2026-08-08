@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ current_lang }}" class="scroll-smooth">
+<html lang="{{ current_lang }}" class="scroll-smooth" data-season="{{ seasonal_theme }}">
 <head>
 <!-- GOLDEN IDEA #1 (Day/Night Theme): resolved synchronously, before any CSS
      paints, so there's never a flash of the wrong theme on load. Priority:
@@ -68,7 +68,7 @@
 
 <!-- Google Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Poppins:wght@300;400;500;600&family=Noto+Serif+Ethiopic:wght@500;600&family=Noto+Sans+Ethiopic:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500;1,600&family=Poppins:wght@300;400;500;600&family=Noto+Serif+Ethiopic:wght@500;600&family=Noto+Sans+Ethiopic:wght@300;400;500&display=swap" rel="stylesheet">
 
 <!-- Alpine.js -->
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -94,13 +94,44 @@
 </head>
 
 <body class="font-sans bg-danu-black text-danu-cream antialiased"
-  x-data="{ cartOpen: false, mobileNavOpen: false }" @open-cart.window="cartOpen = true">
+  x-data="{ cartOpen: false, mobileNavOpen: false, recommended: [],
+             loadRecommended() {
+               if (this.recommended.length) return;
+               fetch('{{ url_for('api_products') }}').then(r => r.json()).then(d => {
+                 this.recommended = d.filter(p => !$store.cart.items.some(i => i.product_id === p.id)).slice(0, 4);
+               });
+             } }"
+  @open-cart.window="cartOpen = true; loadRecommended()">
+
+<!-- Golden idea #3: splash screen with logo animation -->
+<div id="danuSplash" class="danu-splash">
+  <svg viewBox="0 0 40 40" class="danu-splash-logo" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="splashGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#e9dcb8"/><stop offset="50%" stop-color="#cbb26a"/><stop offset="100%" stop-color="#8a7038"/>
+      </linearGradient>
+    </defs>
+    <circle cx="20" cy="20" r="19" fill="none" stroke="url(#splashGrad)" stroke-width="1.4"/>
+    <text x="20" y="26" text-anchor="middle" font-family="Playfair Display, serif" font-size="17" fill="url(#splashGrad)">D&amp;C</text>
+  </svg>
+</div>
 
 <!-- Ambient plum-gold mesh background (behind all pages) -->
 <div class="mesh-bg"></div>
 
 <!-- Custom champagne-drop cursor (desktop only, CSS hides it on touch) -->
 <div class="cursor-drop" id="cursorDrop"></div>
+
+<!-- Golden idea #9: ambient sound toggle -->
+<button onclick="window.danuToggleSound && window.danuToggleSound()" id="soundToggleBtn"
+        class="sound-toggle-btn" title="Toggle sound effects" aria-label="Toggle sound">
+  <svg class="icon-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.59-.71-1.59-1.59v-4.32c0-.88.71-1.59 1.59-1.59h2.24z" />
+  </svg>
+  <svg class="icon-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 9.75L19.5 12m0 0l2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.59-.71-1.59-1.59v-4.32c0-.88.71-1.59 1.59-1.59h2.24z" />
+  </svg>
+</button>
 
 <!-- Toast notification stack -->
 <div class="toast-stack" id="toastStack"></div>
@@ -265,6 +296,23 @@
           </div>
         </div>
       </template>
+
+      <!-- Golden idea: cross-sell strip, fills the empty space when the bag is light -->
+      <div x-show="recommended.length" class="pt-4 mt-2 border-t border-danu-gold/10">
+        <p class="text-xs uppercase tracking-widest text-danu-gold mb-3">You might also like</p>
+        <div class="grid grid-cols-2 gap-3">
+          <template x-for="p in recommended" :key="p.id">
+            <div class="glass-card rounded-lg p-2 text-center">
+              <img :src="p.image_url || 'https://placehold.co/120x120/241329/cbb26a?text=Danu'" class="w-full h-20 object-cover rounded-md mb-1.5">
+              <p class="text-xs truncate" x-text="p.name"></p>
+              <p class="text-xs text-danu-gold mb-1.5" x-text="'{{ currency }} ' + p.effective_price"></p>
+              <button @click="$store.cart.addToCart(p.id).then(loadRecommended)" class="text-[0.65rem] uppercase tracking-wide px-2 py-1 rounded-full border border-danu-gold/30 hover:bg-danu-gold/10 w-full">
+                {{ t('shop.add_to_cart') }}
+              </button>
+            </div>
+          </template>
+        </div>
+      </div>
     </div>
 
     <div class="px-6 py-5 border-t border-danu-gold/15 space-y-3">
@@ -344,6 +392,7 @@
         });
         await this.fetchCart();
         if (window.danuToast) window.danuToast("{{ t('shop.add_to_cart') }} ✓");
+        if (window.danuPlayChime) window.danuPlayChime();
         const cartBtn = document.getElementById("cartBtn");
         if (cartBtn) {
           cartBtn.classList.remove("cart-bump");
@@ -434,6 +483,26 @@
     document.addEventListener("mouseleave", () => cursor.classList.remove("active"));
     document.addEventListener("mousedown", () => cursor.classList.add("pressed"));
     document.addEventListener("mouseup", () => cursor.classList.remove("pressed"));
+  })();
+
+  /* ---------------- Golden idea #2: cinematic hero parallax ---------------- */
+  (function () {
+    var els = document.querySelectorAll(".parallax-bg");
+    if (!els.length || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    var ticking = false;
+    function update() {
+      var y = window.scrollY;
+      els.forEach(function (el) {
+        var rect = el.getBoundingClientRect();
+        if (rect.bottom > 0 && rect.top < window.innerHeight) {
+          el.style.transform = "translateY(" + (y * 0.15) + "px) scale(1.08)";
+        }
+      });
+      ticking = false;
+    }
+    window.addEventListener("scroll", function () {
+      if (!ticking) { requestAnimationFrame(update); ticking = true; }
+    }, { passive: true });
   })();
 
   /* ---------------- Golden idea #1: Day/Night theme toggle ---------------- */

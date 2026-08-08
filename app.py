@@ -186,6 +186,12 @@ def create_app(env_name=None):
         except Exception:  # noqa: BLE001
             pass
 
+        seasonal_theme = "none"
+        try:
+            seasonal_theme = get_setting("seasonal_theme", "none")
+        except Exception:  # noqa: BLE001
+            pass
+
         return dict(
             t=t,
             current_lang=current_lang,
@@ -197,6 +203,7 @@ def create_app(env_name=None):
             active_banner=active_banner,
             media_url=media_url,
             support_telegram_username=support_telegram_username,
+            seasonal_theme=seasonal_theme,
         )
 
     # =========================================================
@@ -1543,6 +1550,19 @@ def create_app(env_name=None):
         flash("Test message sent — check Telegram." if ok else
               "Couldn't send the test message. Double-check the Chat ID and that you've messaged the bot at least once.",
               "success" if ok else "error")
+        return redirect(url_for("admin_settings"))
+
+    @app.route("/admin/settings/seasonal-theme", methods=["POST"])
+    @super_admin_required
+    def admin_settings_seasonal_theme():
+        """Golden idea #8: swap just the accent color site-wide for a holiday/promo
+        period, without touching layout or photography."""
+        theme = request.form.get("seasonal_theme", "none").strip()
+        if theme not in {"none", "christmas", "eid", "valentine"}:
+            theme = "none"
+        set_setting("seasonal_theme", theme)
+        log_activity("settings.seasonal_theme", theme)
+        flash("Seasonal theme updated.", "success")
         return redirect(url_for("admin_settings"))
 
     # --- Product CRUD ---

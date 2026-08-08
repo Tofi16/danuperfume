@@ -6,7 +6,7 @@
   <!-- ============ HERO ============ -->
   <section class="home-hero relative min-h-[70vh] sm:min-h-[80vh] flex items-center justify-center overflow-hidden">
     {% if active_banner and active_banner.image_filename %}
-    <img src="{{ media_url(active_banner.image_filename) }}" alt="{{ active_banner.title }}" class="hero-media" loading="eager">
+    <img src="{{ media_url(active_banner.image_filename) }}" alt="{{ active_banner.title }}" class="hero-media parallax-bg" loading="eager">
     <div class="absolute inset-0 bg-gradient-to-r from-[#140b18]/90 via-[#140b18]/75 to-[#140b18]/45"></div>
     {% else %}
     <div class="hero-bg"></div>
@@ -100,7 +100,7 @@
     <!-- Product Grid -->
     <div x-show="!loading" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
       <template x-for="product in products" :key="product.id">
-        <div class="glass-card rounded-2xl overflow-hidden flex flex-col">
+        <div class="glass-card rounded-2xl overflow-hidden flex flex-col" x-data="{ showUsd: false }">
           <div class="product-img-wrap relative">
             <img :src="product.image_url || 'https://placehold.co/400x400/241329/cbb26a?text=Danu+Perfume'"
                  :alt="product.name" loading="lazy" class="w-full h-56 object-cover">
@@ -120,11 +120,12 @@
             </div>
 
             <div class="mt-auto">
-              <div class="flex items-center gap-2 mb-1">
+              <div class="flex items-center gap-2 mb-2">
                 <span class="text-danu-goldlight font-semibold" x-text="'{{ currency }} ' + product.effective_price"></span>
                 <span x-show="product.discount_price" class="price-strike text-xs text-danu-cream/40" x-text="'{{ currency }} ' + product.price"></span>
+                <button @click.stop="showUsd = !showUsd" class="usd-toggle text-[0.6rem] text-danu-cream/35 hover:text-danu-gold ml-auto shrink-0" title="Show USD estimate">USD</button>
               </div>
-              <p class="text-[0.65rem] text-danu-cream/30 mb-3" x-text="'≈ $' + (product.effective_price * {{ fx_rates.USD }}).toFixed(2) + ' USD'"></p>
+              <p x-show="showUsd" x-transition.opacity class="text-[0.65rem] text-danu-cream/40 -mt-1 mb-2" x-text="'≈ $' + (product.effective_price * {{ fx_rates.USD }}).toFixed(2) + ' USD'"></p>
 
               <div class="flex gap-2">
                 <button x-show="product.stock > 0" @click="addToCart(product.id)"
@@ -135,13 +136,15 @@
                         class="btn-outline-luxury border flex-1 rounded-full py-2 text-xs uppercase tracking-wider">
                   Notify Me
                 </button>
-                <button @click="openNotesModal(product)"
-                        class="w-10 h-10 flex items-center justify-center rounded-full border border-danu-gold/30 hover:border-danu-gold transition-colors" title="{{ t('shop.view_notes') }}">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-danu-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
-                  </svg>
-                </button>
               </div>
+              <button @click="openNotesModal(product)"
+                      class="view-details-link w-full flex items-center justify-center gap-1.5 mt-2 py-1.5 text-[0.7rem] uppercase tracking-wider text-danu-cream/50 hover:text-danu-gold transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                {{ t('shop.view_notes') }}
+              </button>
             </div>
           </div>
         </div>
@@ -166,177 +169,217 @@
     </p>
   </section>
 
-  <!-- ============ FRAGRANCE NOTES MODAL ============ -->
-  <div x-show="notesModalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center px-4" style="display:none;">
+  <!-- ============ PRODUCT DETAIL SHEET (redesigned) ============ -->
+  <div x-show="notesModalOpen" x-cloak class="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style="display:none;">
     <div class="absolute inset-0 modal-backdrop" @click="notesModalOpen = false" x-transition.opacity></div>
 
-    <div class="relative glass rounded-2xl max-w-lg w-full p-8"
-         x-transition:enter="transition ease-out duration-400"
-         x-transition:enter-start="opacity-0 scale-95"
-         x-transition:enter-end="opacity-100 scale-100">
+    <template x-if="activeProduct">
+      <div x-data="{ zoomOpen: false, zoomSrc: '', activeTab: 'notes' }"
+           class="product-sheet relative glass w-full sm:max-w-3xl sm:rounded-2xl rounded-t-3xl overflow-hidden flex flex-col sm:flex-row"
+           x-transition:enter="transition ease-out duration-400"
+           x-transition:enter-start="opacity-0 translate-y-8 sm:translate-y-0 sm:scale-95"
+           x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100">
 
-      <button @click="notesModalOpen = false" class="absolute top-4 right-5 text-2xl text-danu-cream/60 hover:text-danu-gold">&times;</button>
+        <button @click="notesModalOpen = false" class="absolute top-4 right-5 z-10 text-2xl text-white/90 hover:text-danu-gold bg-black/30 sm:bg-transparent rounded-full w-8 h-8 flex items-center justify-center">&times;</button>
 
-      <template x-if="activeProduct">
-        <div>
-          <img :src="activeProduct.image_url || 'https://placehold.co/400x400/241329/cbb26a?text=Danu'" class="w-24 h-24 object-cover rounded-xl mx-auto mb-3">
-          <div class="flex justify-center gap-2 mb-4" x-show="activeProduct.gallery && activeProduct.gallery.length">
+        <!-- Image column -->
+        <div class="product-sheet-media sm:w-2/5 shrink-0">
+          <img :src="activeProduct.image_url || 'https://placehold.co/500x500/241329/cbb26a?text=Danu'"
+               @click="zoomSrc = activeProduct.image_url; zoomOpen = true"
+               class="w-full h-56 sm:h-full object-cover cursor-zoom-in" title="Click to zoom">
+          <div class="flex gap-2 p-3 sm:absolute sm:bottom-0 sm:left-0 sm:right-0 sm:bg-gradient-to-t sm:from-black/60 sm:to-transparent"
+               x-show="activeProduct.gallery && activeProduct.gallery.length">
             <template x-for="img in (activeProduct.gallery || [])" :key="img">
-              <img :src="img" class="w-10 h-10 object-cover rounded-lg border border-danu-gold/20">
+              <img :src="img" @click="zoomSrc = img; zoomOpen = true"
+                   class="w-11 h-11 object-cover rounded-lg border border-danu-gold/30 cursor-zoom-in hover:border-danu-gold transition-colors">
             </template>
           </div>
-          <h3 class="font-serif text-2xl text-center text-danu-goldlight mb-1" x-text="activeProduct.name"></h3>
-          <p class="text-center text-xs text-danu-cream/50 mb-6" x-text="activeProduct.brand"></p>
+        </div>
 
-          <div class="space-y-4">
-            <div>
-              <p class="text-xs uppercase tracking-widest text-danu-gold mb-2">{{ t('notes.top') }}</p>
-              <div>
-                <template x-for="n in activeProduct.top_notes" :key="n"><span class="note-pill" x-text="n"></span></template>
-              </div>
-            </div>
-            <div>
-              <p class="text-xs uppercase tracking-widest text-danu-gold mb-2">{{ t('notes.heart') }}</p>
-              <div>
-                <template x-for="n in activeProduct.heart_notes" :key="n"><span class="note-pill" x-text="n"></span></template>
-              </div>
-            </div>
-            <div>
-              <p class="text-xs uppercase tracking-widest text-danu-gold mb-2">{{ t('notes.base') }}</p>
-              <div>
-                <template x-for="n in activeProduct.base_notes" :key="n"><span class="note-pill" x-text="n"></span></template>
-              </div>
+        <!-- Zoom lightbox -->
+        <div x-show="zoomOpen" x-cloak x-transition.opacity @click="zoomOpen = false"
+             class="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-6 cursor-zoom-out" style="display:none;">
+          <img :src="zoomSrc" class="max-w-full max-h-full rounded-xl shadow-2xl" @click.stop>
+          <button @click="zoomOpen = false" class="absolute top-5 right-6 text-3xl text-white/80 hover:text-white">&times;</button>
+        </div>
+
+        <!-- Content column -->
+        <div class="flex-1 flex flex-col min-h-0">
+          <div class="px-6 pt-5 sm:pt-6 shrink-0">
+            <h3 class="font-serif text-xl sm:text-2xl text-danu-goldlight" x-text="activeProduct.name"></h3>
+            <p class="text-xs text-danu-cream/50 mt-0.5" x-text="activeProduct.brand"></p>
+            <p class="text-sm mt-2">
+              <span class="text-danu-gold font-semibold" x-text="'{{ currency }} ' + (activeProduct.effective_price ?? activeProduct.price)"></span>
+              <span x-show="activeProduct.discount_price" class="text-danu-cream/40 line-through text-xs ml-2" x-text="'{{ currency }} ' + activeProduct.price"></span>
+            </p>
+
+            <!-- Tabs -->
+            <div class="product-sheet-tabs flex gap-1 mt-4 border-b border-danu-gold/15">
+              <button @click="activeTab = 'notes'" class="product-tab" :class="activeTab === 'notes' && 'active'">Notes</button>
+              <button @click="activeTab = 'reviews'" class="product-tab" :class="activeTab === 'reviews' && 'active'">
+                Reviews <span x-text="'(' + ((activeProduct.reviews || []).length) + ')'"></span>
+              </button>
+              <button @click="activeTab = 'write'" class="product-tab" :class="activeTab === 'write' && 'active'">Write a Review</button>
             </div>
           </div>
 
-          <!-- Notify Me (out of stock) -->
-          <div x-show="activeProduct.stock === 0" x-data="{ phone: '', sent: false }" class="mt-6 pt-5 border-t border-danu-gold/15">
-            <p class="text-xs uppercase tracking-widest text-danu-gold mb-2">Notify Me When Back In Stock</p>
-            <div class="flex gap-2" x-show="!sent">
-              <input type="tel" x-model="phone" placeholder="+251 9XX XXX XXX" class="flex-1 bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
-              <button @click="fetch('/api/product/' + activeProduct.id + '/notify-me', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({phone}) }).then(() => sent = true)"
-                      class="btn-luxury rounded-lg px-4 text-xs uppercase">Notify Me</button>
-            </div>
-            <p x-show="sent" class="text-xs text-green-400">We'll text you when it's back!</p>
-          </div>
+          <!-- Tab bodies (scrollable, sticky bar stays put) -->
+          <div class="flex-1 overflow-y-auto px-6 py-5" style="max-height: min(52vh, 420px);">
 
-          <!-- Reviews -->
-          <div class="mt-6 pt-5 border-t border-danu-gold/15" x-show="activeProduct.reviews && activeProduct.reviews.length">
-            <p class="text-xs uppercase tracking-widest text-danu-gold mb-3">Customer Reviews</p>
-            <div class="space-y-3 max-h-48 overflow-y-auto pr-1">
-              <template x-for="r in (activeProduct.reviews || [])" :key="r.customer_name + r.rating">
-                <div class="text-xs border-b border-danu-gold/10 pb-2 last:border-0">
-                  <div class="flex items-start gap-2">
-                    <img x-show="r.photo_url" :src="r.photo_url" class="w-10 h-10 rounded-lg object-cover shrink-0">
-                    <div>
-                      <span class="text-danu-goldlight" x-text="'★'.repeat(r.rating) + '☆'.repeat(5 - r.rating)"></span>
-                      <span class="text-danu-cream/70" x-text="' ' + r.customer_name + ': ' + (r.comment || '')"></span>
-                      <p class="text-[0.65rem] text-danu-cream/40 mt-0.5" x-show="r.longevity_rating || r.scent_match_rating || r.packaging_rating">
-                        <span x-show="r.longevity_rating" x-text="'Longevity ' + r.longevity_rating + '/5  '"></span>
-                        <span x-show="r.scent_match_rating" x-text="'· Scent Match ' + r.scent_match_rating + '/5  '"></span>
-                        <span x-show="r.packaging_rating" x-text="'· Packaging ' + r.packaging_rating + '/5'"></span>
-                      </p>
-                      <p class="text-[0.7rem] text-danu-gold/80 mt-1 pl-2 border-l border-danu-gold/30" x-show="r.admin_reply" x-text="'↳ ' + r.admin_reply"></p>
+            <!-- NOTES TAB -->
+            <div x-show="activeTab === 'notes'" x-cloak>
+              <div class="space-y-4">
+                <div>
+                  <p class="text-xs uppercase tracking-widest text-danu-gold mb-2">{{ t('notes.top') }}</p>
+                  <div><template x-for="n in activeProduct.top_notes" :key="n"><span class="note-pill" x-text="n"></span></template></div>
+                </div>
+                <div>
+                  <p class="text-xs uppercase tracking-widest text-danu-gold mb-2">{{ t('notes.heart') }}</p>
+                  <div><template x-for="n in activeProduct.heart_notes" :key="n"><span class="note-pill" x-text="n"></span></template></div>
+                </div>
+                <div>
+                  <p class="text-xs uppercase tracking-widest text-danu-gold mb-2">{{ t('notes.base') }}</p>
+                  <div><template x-for="n in activeProduct.base_notes" :key="n"><span class="note-pill" x-text="n"></span></template></div>
+                </div>
+              </div>
+
+              <!-- Notify Me (out of stock) -->
+              <div x-show="activeProduct.stock === 0" x-data="{ phone: '', sent: false }" class="mt-6 pt-5 border-t border-danu-gold/15">
+                <p class="text-xs uppercase tracking-widest text-danu-gold mb-2">Notify Me When Back In Stock</p>
+                <div class="flex gap-2" x-show="!sent">
+                  <input type="tel" x-model="phone" placeholder="+251 9XX XXX XXX" class="flex-1 bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
+                  <button @click="fetch('/api/product/' + activeProduct.id + '/notify-me', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({phone}) }).then(() => sent = true)"
+                          class="btn-luxury rounded-lg px-4 text-xs uppercase">Notify Me</button>
+                </div>
+                <p x-show="sent" class="text-xs text-green-400">We'll text you when it's back!</p>
+              </div>
+            </div>
+
+            <!-- REVIEWS TAB -->
+            <div x-show="activeTab === 'reviews'" x-cloak>
+              <div class="space-y-3" x-show="activeProduct.reviews && activeProduct.reviews.length">
+                <template x-for="r in (activeProduct.reviews || [])" :key="r.customer_name + r.rating">
+                  <div class="text-xs border-b border-danu-gold/10 pb-3 last:border-0">
+                    <div class="flex items-start gap-2">
+                      <img x-show="r.photo_url" :src="r.photo_url" class="w-10 h-10 rounded-lg object-cover shrink-0">
+                      <div>
+                        <span class="text-danu-goldlight" x-text="'★'.repeat(r.rating) + '☆'.repeat(5 - r.rating)"></span>
+                        <span class="text-danu-cream/70" x-text="' ' + r.customer_name + ': ' + (r.comment || '')"></span>
+                        <p class="text-[0.65rem] text-danu-cream/40 mt-0.5" x-show="r.longevity_rating || r.scent_match_rating || r.packaging_rating">
+                          <span x-show="r.longevity_rating" x-text="'Longevity ' + r.longevity_rating + '/5  '"></span>
+                          <span x-show="r.scent_match_rating" x-text="'· Scent Match ' + r.scent_match_rating + '/5  '"></span>
+                          <span x-show="r.packaging_rating" x-text="'· Packaging ' + r.packaging_rating + '/5'"></span>
+                        </p>
+                        <p class="text-[0.7rem] text-danu-gold/80 mt-1 pl-2 border-l border-danu-gold/30" x-show="r.admin_reply" x-text="'↳ ' + r.admin_reply"></p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </template>
-            </div>
-          </div>
-
-          <div class="mt-6 pt-5 border-t border-danu-gold/15"
-               x-data="{ name: '', phone: '', rating: 5, longevity: 0, scentMatch: 0, packaging: 0, delivery: 0, comment: '', photo: null, sent: false, err: '', sending: false, bonusPoints: 0 }">
-            <p class="text-xs uppercase tracking-widest text-danu-gold mb-3">Leave a Review</p>
-            <div x-show="!sent" class="space-y-2">
-              <input type="text" x-model="name" placeholder="Your name" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
-              <input type="tel" x-model="phone" placeholder="Phone (optional — earn loyalty points)" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
-              <select x-model.number="rating" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
-                <option value="5">★★★★★ Overall</option><option value="4">★★★★☆ Overall</option><option value="3">★★★☆☆ Overall</option><option value="2">★★☆☆☆ Overall</option><option value="1">★☆☆☆☆ Overall</option>
-              </select>
-
-              <!-- Scent-specific sub-ratings (Rule 2) -->
-              <div class="grid grid-cols-3 gap-2 pt-1">
-                <div>
-                  <label class="text-[0.6rem] text-danu-cream/50 uppercase tracking-wide">Longevity</label>
-                  <select x-model.number="longevity" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-danu-gold">
-                    <option value="0">—</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="text-[0.6rem] text-danu-cream/50 uppercase tracking-wide">Scent Match</label>
-                  <select x-model.number="scentMatch" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-danu-gold">
-                    <option value="0">—</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="text-[0.6rem] text-danu-cream/50 uppercase tracking-wide">Packaging</label>
-                  <select x-model.number="packaging" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-danu-gold">
-                    <option value="0">—</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option>
-                  </select>
-                </div>
+                </template>
               </div>
+              <div class="empty-state text-center py-10" x-show="!(activeProduct.reviews && activeProduct.reviews.length)">
+                <p class="text-sm text-danu-cream/50">No reviews yet — be the first to share your experience.</p>
+                <button @click="activeTab = 'write'" class="text-xs text-danu-gold hover:underline mt-2">Write a Review →</button>
+              </div>
+            </div>
 
-              <!-- Delivery experience, rated separately from the product (Rule 7) -->
-              <div>
-                <label class="text-[0.6rem] text-danu-cream/50 uppercase tracking-wide">Delivery Experience (optional)</label>
-                <select x-model.number="delivery" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-danu-gold">
-                  <option value="0">—</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option>
+            <!-- WRITE A REVIEW TAB -->
+            <div x-show="activeTab === 'write'" x-cloak
+                 x-data="{ name: '', phone: '', rating: 5, longevity: 0, scentMatch: 0, packaging: 0, delivery: 0, comment: '', photo: null, sent: false, err: '', sending: false, bonusPoints: 0 }">
+              <div x-show="!sent" class="space-y-2">
+                <input type="text" x-model="name" placeholder="Your name" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
+                <input type="tel" x-model="phone" placeholder="Phone (optional — earn loyalty points)" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
+                <select x-model.number="rating" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold">
+                  <option value="5">★★★★★ Overall</option><option value="4">★★★★☆ Overall</option><option value="3">★★★☆☆ Overall</option><option value="2">★★☆☆☆ Overall</option><option value="1">★☆☆☆☆ Overall</option>
                 </select>
+
+                <div class="grid grid-cols-3 gap-2 pt-1">
+                  <div>
+                    <label class="text-[0.6rem] text-danu-cream/50 uppercase tracking-wide">Longevity</label>
+                    <select x-model.number="longevity" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-danu-gold">
+                      <option value="0">—</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="text-[0.6rem] text-danu-cream/50 uppercase tracking-wide">Scent Match</label>
+                    <select x-model.number="scentMatch" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-danu-gold">
+                      <option value="0">—</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="text-[0.6rem] text-danu-cream/50 uppercase tracking-wide">Packaging</label>
+                    <select x-model.number="packaging" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-danu-gold">
+                      <option value="0">—</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="text-[0.6rem] text-danu-cream/50 uppercase tracking-wide">Delivery Experience (optional)</label>
+                  <select x-model.number="delivery" class="w-full bg-danu-charcoal border border-danu-gold/25 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-danu-gold">
+                    <option value="0">—</option><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option>
+                  </select>
+                </div>
+
+                <textarea x-model="comment" rows="2" placeholder="Tell us about the scent, longevity, packaging…" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold"></textarea>
+                <p class="text-[0.65rem]" :class="comment.length >= 15 ? 'text-danu-gold/60' : 'text-danu-cream/40'">
+                  <span x-text="comment.length"></span>/15 characters minimum
+                </p>
+
+                <div>
+                  <label class="text-[0.6rem] text-danu-cream/50 uppercase tracking-wide">Photo of the product (optional)</label>
+                  <input type="file" accept="image/png, image/jpeg, image/webp" @change="photo = $event.target.files[0]"
+                         class="w-full text-xs text-danu-cream/60 file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:bg-danu-gold/15 file:text-danu-goldlight">
+                </div>
+
+                <p x-show="err" x-text="err" class="text-xs text-red-400"></p>
+                <button
+                  @click="
+                    if (comment.trim().length < 15) { err = 'Please share a few more words (at least 15 characters).'; return; }
+                    if (!name.trim()) { err = 'Please enter your name.'; return; }
+                    err = ''; sending = true;
+                    const fd = new FormData();
+                    fd.append('customer_name', name); fd.append('customer_phone', phone);
+                    fd.append('rating', rating); fd.append('comment', comment);
+                    if (longevity) fd.append('longevity_rating', longevity);
+                    if (scentMatch) fd.append('scent_match_rating', scentMatch);
+                    if (packaging) fd.append('packaging_rating', packaging);
+                    if (delivery) fd.append('delivery_rating', delivery);
+                    if (photo) fd.append('photo', photo);
+                    fetch('/api/product/' + activeProduct.id + '/review', { method: 'POST', body: fd })
+                      .then(r => r.json())
+                      .then(res => { sending = false; if (res.error) { err = res.error; } else { sent = true; bonusPoints = res.bonus_points || 0; if (window.danuToast) danuToast('Review submitted ✓'); } })
+                  "
+                  :disabled="comment.trim().length < 15 || sending"
+                  :class="(comment.trim().length < 15 || sending) ? 'opacity-40 cursor-not-allowed' : ''"
+                  class="btn-outline-luxury border w-full rounded-full py-2 text-xs uppercase tracking-widest transition-opacity">
+                  <span x-show="!sending">Submit Review</span>
+                  <span x-show="sending">Sending…</span>
+                </button>
               </div>
-
-              <textarea x-model="comment" rows="2" placeholder="Tell us about the scent, longevity, packaging…" class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-danu-gold"></textarea>
-              <p class="text-[0.65rem]" :class="comment.length >= 15 ? 'text-danu-gold/60' : 'text-danu-cream/40'">
-                <span x-text="comment.length"></span>/15 characters minimum
-              </p>
-
-              <!-- Optional verified-purchase photo (Rule 3) -->
-              <div>
-                <label class="text-[0.6rem] text-danu-cream/50 uppercase tracking-wide">Photo of the product (optional)</label>
-                <input type="file" accept="image/png, image/jpeg, image/webp" @change="photo = $event.target.files[0]"
-                       class="w-full text-xs text-danu-cream/60 file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:bg-danu-gold/15 file:text-danu-goldlight">
+              <div x-show="sent" x-cloak class="text-center py-8 animate__animated animate__fadeIn">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto mb-2 text-danu-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p class="text-sm text-gold-gradient font-serif">Thank you for your feedback</p>
+                <p class="text-xs text-danu-cream/50 mt-1" x-show="!bonusPoints">Your review is pending approval and will appear soon.</p>
+                <p class="text-xs text-danu-goldlight mt-1" x-show="bonusPoints">You've earned <span x-text="bonusPoints"></span> loyalty points. Your review is pending approval.</p>
               </div>
-
-              <p x-show="err" x-text="err" class="text-xs text-red-400"></p>
-              <button
-                @click="
-                  if (comment.trim().length < 15) { err = 'Please share a few more words (at least 15 characters).'; return; }
-                  if (!name.trim()) { err = 'Please enter your name.'; return; }
-                  err = ''; sending = true;
-                  const fd = new FormData();
-                  fd.append('customer_name', name); fd.append('customer_phone', phone);
-                  fd.append('rating', rating); fd.append('comment', comment);
-                  if (longevity) fd.append('longevity_rating', longevity);
-                  if (scentMatch) fd.append('scent_match_rating', scentMatch);
-                  if (packaging) fd.append('packaging_rating', packaging);
-                  if (delivery) fd.append('delivery_rating', delivery);
-                  if (photo) fd.append('photo', photo);
-                  fetch('/api/product/' + activeProduct.id + '/review', { method: 'POST', body: fd })
-                    .then(r => r.json())
-                    .then(res => { sending = false; if (res.error) { err = res.error; } else { sent = true; bonusPoints = res.bonus_points || 0; if (window.danuToast) danuToast('Review submitted ✓'); } })
-                "
-                :disabled="comment.trim().length < 15 || sending"
-                :class="(comment.trim().length < 15 || sending) ? 'opacity-40 cursor-not-allowed' : ''"
-                class="btn-outline-luxury border w-full rounded-full py-2 text-xs uppercase tracking-widest transition-opacity">
-                <span x-show="!sending">Submit Review</span>
-                <span x-show="sending">Sending…</span>
-              </button>
-            </div>
-            <div x-show="sent" x-cloak class="text-center py-4 animate__animated animate__fadeIn">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto mb-2 text-danu-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p class="text-sm text-gold-gradient font-serif">Thank you for your feedback</p>
-              <p class="text-xs text-danu-cream/50 mt-1" x-show="!bonusPoints">Your review is pending approval and will appear soon.</p>
-              <p class="text-xs text-danu-goldlight mt-1" x-show="bonusPoints">You've earned <span x-text="bonusPoints"></span> loyalty points. Your review is pending approval.</p>
             </div>
           </div>
 
-          <button @click="notesModalOpen = false" class="btn-outline-luxury border rounded-full w-full py-2.5 mt-6 text-sm uppercase tracking-widest">
-            {{ t('notes.close') }}
-          </button>
+          <!-- Golden idea #8: sticky Add to Cart bar, always visible regardless of scroll/tab -->
+          <div class="product-sheet-sticky shrink-0 px-6 py-4 border-t border-danu-gold/15 flex items-center gap-3">
+            <button x-show="activeProduct.stock > 0" @click="addToCart(activeProduct.id); notesModalOpen = false"
+                    class="btn-luxury flex-1 rounded-full py-3 text-sm uppercase tracking-widest">
+              {{ t('shop.add_to_cart') }} — <span x-text="'{{ currency }} ' + (activeProduct.effective_price ?? activeProduct.price)"></span>
+            </button>
+            <span x-show="activeProduct.stock === 0" class="flex-1 text-center text-xs uppercase tracking-widest text-danu-cream/50 py-3">
+              {{ t('shop.out_of_stock') }}
+            </span>
+          </div>
         </div>
-      </template>
-    </div>
+      </div>
+    </template>
   </div>
 
 </div>
