@@ -1,6 +1,20 @@
 <!DOCTYPE html>
-<html lang="{{ current_lang }}" class="scroll-smooth" data-season="{{ seasonal_theme }}">
+<html lang="{{ current_lang }}" class="scroll-smooth no-js" data-season="{{ seasonal_theme|default('') }}">
 <head>
+<!-- Progressive enhancement: removes .no-js the instant JS runs, so the CSS
+     no-js fallback (content visible with no animation) only applies on the
+     rare case JS is unavailable, and never flashes for JS-enabled visitors. -->
+<script>document.documentElement.classList.remove('no-js');</script>
+<!-- Critical inline CSS for the splash screen: guarantees correct full-screen
+     centering and sizing from the very first paint, independent of when the
+     external style.css finishes loading over the network. This is what
+     actually fixes the "giant logo fills the screen" symptom — previously
+     the splash briefly rendered with only browser-default SVG/div sizing
+     before style.css arrived. -->
+<style>
+  .danu-splash { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 40%, #22112a 0%, #150a19 70%); }
+  .danu-splash-logo { width: 84px; height: 84px; display: block; }
+</style>
 <!-- GOLDEN IDEA #1 (Day/Night Theme): resolved synchronously, before any CSS
      paints, so there's never a flash of the wrong theme on load. Priority:
      saved user choice > time-of-day (18:00–06:00 = night). -->
@@ -73,15 +87,24 @@
 <!-- Alpine.js -->
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
-<!-- GSAP -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<!-- GSAP: deferred so it never blocks HTML parsing/paint, and the fade-up
+     content still works with zero JS if the CDN is slow, blocked by an
+     ad-blocker, or times out — see the CSS fallback right below and the
+     "GSAP failed to load" guard further down this file. -->
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 
 <!-- Animate.css -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
 
-<!-- Custom styles -->
-<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<!-- Custom styles. A version query string busts stale browser/CDN caches on
+     Render whenever this file changes — without it, visitors who loaded the
+     site before a CSS update can keep running an old stylesheet indefinitely
+     (this was very likely why the day/night toggle and the oversized splash
+     logo appeared broken: the browser was still using cached CSS that
+     predated those fixes). Bump the version number on every deploy that
+     changes style.css. -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=3">
 
 {% block extra_head %}{% endblock %}
 <!-- Mobile zoom lock safeguard (optional) -->
@@ -90,6 +113,34 @@
   document.addEventListener('gesturestart', function (e) {
     e.preventDefault();
   });
+
+  // Shared scroll-lock helper. Any x-effect (cart drawer, mobile nav, product
+  // modal) calls window.danuSetOverlayLock(true/false) instead of toggling a
+  // class directly, so the exact scroll offset is saved before locking and
+  // restored after unlocking — without this, body becomes position:fixed and
+  // visually jumps to the top the instant any overlay opens or closes.
+  (function () {
+    let savedScrollY = 0;
+    let lockDepth = 0; // supports multiple overlays toggling independently without unlocking early
+    window.danuSetOverlayLock = function (shouldLock) {
+      const html = document.documentElement;
+      if (shouldLock) {
+        lockDepth++;
+        if (lockDepth === 1) {
+          savedScrollY = window.scrollY || window.pageYOffset || 0;
+          document.body.style.top = `-${savedScrollY}px`;
+          html.classList.add('overlay-lock');
+        }
+      } else {
+        lockDepth = Math.max(0, lockDepth - 1);
+        if (lockDepth === 0) {
+          html.classList.remove('overlay-lock');
+          document.body.style.top = '';
+          window.scrollTo(0, savedScrollY);
+        }
+      }
+    };
+  })();
 </script>
 </head>
 
@@ -101,11 +152,16 @@
                  this.recommended = d.filter(p => !$store.cart.items.some(i => i.product_id === p.id)).slice(0, 4);
                });
              } }"
+  x-effect="window.danuSetOverlayLock(cartOpen || mobileNavOpen)"
   @open-cart.window="cartOpen = true; loadRecommended()">
 
-<!-- Golden idea #3: splash screen with logo animation -->
+<!-- Splash screen with logo animation. width/height are set inline (not only
+     via CSS) so the SVG renders at the correct 84px size on the very first
+     paint, even for the brief moment before style.css finishes loading —
+     an SVG with only a viewBox and no explicit size can render oversized
+     (browser default ~300px, or larger) until the stylesheet catches up. -->
 <div id="danuSplash" class="danu-splash">
-  <svg viewBox="0 0 40 40" class="danu-splash-logo" xmlns="http://www.w3.org/2000/svg">
+  <svg viewBox="0 0 40 40" width="84" height="84" class="danu-splash-logo" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="splashGrad" x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" stop-color="#e9dcb8"/><stop offset="50%" stop-color="#cbb26a"/><stop offset="100%" stop-color="#8a7038"/>
@@ -423,9 +479,19 @@
     Alpine.store("cart").fetchCart();
   });
 
-  // GSAP scroll-triggered fade-ups
-  document.addEventListener("DOMContentLoaded", () => {
-    if (window.gsap && window.ScrollTrigger) {
+  // GSAP scroll-triggered fade-ups — with a safety net. GSAP now loads with
+  // `defer`, so it can arrive after DOMContentLoaded; and on a slow network,
+  // a blocked CDN, or an ad-blocker, it may never arrive at all. Either way,
+  // `.fade-up` content must not stay permanently invisible (opacity: 0 is
+  // the CSS default so it can animate in) — this is exactly the "About"
+  // section rendering blank bug. The guard below waits briefly for GSAP,
+  // and if it's not there in time, reveals every .fade-up element with a
+  // plain CSS transition instead of leaving them stuck.
+  (function () {
+    var revealed = false;
+    function revealWithGSAP() {
+      if (revealed || !window.gsap || !window.ScrollTrigger) return false;
+      revealed = true;
       gsap.registerPlugin(ScrollTrigger);
       gsap.utils.toArray(".fade-up").forEach((el) => {
         gsap.to(el, {
@@ -436,8 +502,29 @@
           scrollTrigger: { trigger: el, start: "top 90%" }
         });
       });
+      return true;
     }
-  });
+    function revealWithCSSFallback() {
+      if (revealed) return;
+      revealed = true;
+      document.querySelectorAll(".fade-up").forEach((el) => {
+        el.classList.add("fade-up-fallback-in");
+      });
+    }
+    document.addEventListener("DOMContentLoaded", function () {
+      if (revealWithGSAP()) return;
+      // GSAP not ready yet (still downloading) — give it a short window,
+      // then fall back so content is never stuck invisible.
+      var attempts = 0;
+      var poll = setInterval(function () {
+        attempts++;
+        if (revealWithGSAP() || attempts > 20) { // ~3s max wait
+          clearInterval(poll);
+          if (!revealed) revealWithCSSFallback();
+        }
+      }, 150);
+    });
+  })();
 </script>
 
 
@@ -566,15 +653,28 @@
     });
   })();
 
-  /* ---------------- Golden idea #3: splash screen ---------------- */
-  window.addEventListener("load", function () {
+  /* ---------------- Splash screen ---------------- */
+  // Was triggered on window.load, which waits for EVERY resource on the page
+  // (hero image, fonts, GSAP, Animate.css) to finish — on a slow mobile
+  // connection that can be several seconds, making the splash linger far
+  // longer than intended. DOMContentLoaded fires as soon as the HTML/CSS
+  // needed to render the page is ready, which is the correct signal here;
+  // a hard 2.5s cap guarantees the splash never gets stuck even if
+  // DOMContentLoaded itself is somehow delayed.
+  function dismissSplash() {
     var splash = document.getElementById("danuSplash");
-    if (!splash) return;
-    setTimeout(function () {
-      splash.classList.add("splash-leaving");
-      setTimeout(function () { splash.remove(); }, 600);
-    }, 500);
-  });
+    if (!splash || splash.classList.contains("splash-leaving")) return;
+    splash.classList.add("splash-leaving");
+    setTimeout(function () { splash.remove(); }, 600);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      setTimeout(dismissSplash, 350);
+    });
+  } else {
+    setTimeout(dismissSplash, 350);
+  }
+  setTimeout(dismissSplash, 2500); // hard safety cap either way
 </script>
 
 {% block extra_scripts %}{% endblock %}

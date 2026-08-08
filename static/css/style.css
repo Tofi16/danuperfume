@@ -3,6 +3,29 @@
    Midnight Plum + Champagne Gold — Luxury Glassmorphism, Smooth Micro-interactions
    ========================================================================== */
 
+/* ==========================================================================
+   Background scroll lock for modals / drawers / mobile nav
+   Toggled via .overlay-lock on <html> (see base.html body x-effect + the
+   product-sheet modal x-effect in index.html). Locks BOTH html and body —
+   iOS Safari can still rubber-band-scroll the page behind a `position:fixed`
+   overlay if only one of the two is locked, which is the exact "background
+   moves while modal is open" bug. Using position:fixed on body (not just
+   overflow:hidden) is what actually stops the iOS/Chrome-mobile
+   scroll-under-modal glitch, and the paired JS helper restores the exact
+   prior scroll offset on unlock so the page doesn't jump.
+   ========================================================================== */
+html.overlay-lock,
+html.overlay-lock body {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+html.overlay-lock body {
+  position: fixed;
+  left: 0;
+  right: 0;
+  width: 100%;
+}
+
 :root {
   --danu-gold: #cbb26a;        /* champagne gold */
   --danu-gold-light: #e9dcb8;  /* pale champagne */
@@ -570,6 +593,22 @@ main {
   opacity: 0;
   transform: translateY(40px);
 }
+/* Plain-CSS fallback reveal if GSAP/ScrollTrigger never loads (blocked CDN,
+   ad-blocker, offline, slow network) — see the JS guard in base.html. Without
+   this, .fade-up content (e.g. the "About" section) stays invisible forever
+   since opacity:0 above is the resting state GSAP is supposed to animate out
+   of. */
+.fade-up-fallback-in {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+  transition: opacity 0.7s var(--ease-luxury), transform 0.7s var(--ease-luxury);
+}
+/* No-JS safety net: if JavaScript is disabled entirely, neither GSAP nor the
+   fallback timer ever runs — this ensures content is still visible. */
+html.no-js .fade-up {
+  opacity: 1;
+  transform: none;
+}
 
 /* ---------------- Product image interaction ---------------- */
 .product-img-wrap {
@@ -696,11 +735,19 @@ input:focus, textarea:focus, select:focus {
 }
 
 /* ---------------- Ambient plum-gold mesh background (non-hero pages) ---------------- */
+/* iOS Safari repaints a `position:fixed` element on every scroll tick unless
+   it's promoted to its own GPU compositing layer — that's the actual cause
+   of the "background jumps / flickers while scrolling" bug on phones.
+   translateZ(0) + will-change forces that layer promotion so the mesh
+   background stays rock-solid during scroll. */
 .mesh-bg {
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
+  transform: translateZ(0);
+  will-change: background-position;
+  backface-visibility: hidden;
   background:
     radial-gradient(circle at 15% 10%, rgba(203, 178, 106, 0.07), transparent 40%),
     radial-gradient(circle at 85% 15%, rgba(120, 60, 140, 0.14), transparent 45%),
@@ -708,6 +755,20 @@ input:focus, textarea:focus, select:focus {
     var(--danu-black);
   background-size: 180% 180%;
   animation: heroDrift 26s ease-in-out infinite alternate;
+}
+
+/* Respect reduced-motion preference: the drifting mesh, shimmer, and
+   floating particles are pure decoration and can genuinely nauseate
+   motion-sensitive users — costs nothing visually for everyone else. */
+@media (prefers-reduced-motion: reduce) {
+  .mesh-bg,
+  .hero-bg,
+  .text-gold-gradient,
+  .floating-particle,
+  html {
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ---------------- Custom cursor (desktop / fine-pointer only) ---------------- */

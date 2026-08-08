@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div x-data="shopPage()" x-init="init()">
+<div x-data="shopPage()" x-init="init()" x-effect="window.danuSetOverlayLock(notesModalOpen)">
 
   <!-- ============ HERO ============ -->
   <section class="home-hero relative min-h-[70vh] sm:min-h-[80vh] flex items-center justify-center overflow-hidden">
