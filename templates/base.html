@@ -122,7 +122,7 @@
      logo appeared broken: the browser was still using cached CSS that
      predated those fixes). Bump the version number on every deploy that
      changes style.css. -->
-<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=3">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=5">
 
 {% block extra_head %}{% endblock %}
 <!-- Mobile zoom lock safeguard (optional) -->
@@ -202,15 +202,13 @@
      iOS Safari: no install-prompt API exists at all, so instead this opens a
      small card with the manual "Share → Add to Home Screen" steps. Hidden
      entirely once the app is already installed (standalone display mode) or
-     if the browser never fires beforeinstallprompt and isn't iOS Safari
-     (desktop non-Chrome, in-app browsers, etc. — installing there isn't
-     meaningfully supported, so no point showing a button that won't work). -->
+     if the browser never fires beforeinstallprompt and isn't iOS Safari. -->
 <div x-data="installAppWidget()" x-init="init()" x-show="showButton" x-cloak style="display:none;">
   <button @click="promptInstall()" class="install-app-btn" title="Install Danu Perfume app" aria-label="Install app">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v13m0 0l-4-4m4 4l4-4M5 19h14" />
     </svg>
-    <span>{{ t('install.button')|default('Install App') }}</span>
+    <span>Install App</span>
   </button>
 
   <!-- iOS manual-steps card -->
@@ -483,9 +481,7 @@
         await this.fetchCart();
         if (window.danuToast) window.danuToast("{{ t('shop.add_to_cart') }} ✓");
         // Chime now plays via the global .btn-luxury delegated click listener
-        // (see the ambient micro-sound block), so no explicit call is needed
-        // here — avoids double-playing when addToCart() is triggered by a
-        // .btn-luxury button, which is every call site in this app.
+        // (see the ambient micro-sound block) — avoids double-playing.
         const cartBtn = document.getElementById("cartBtn");
         if (cartBtn) {
           cartBtn.classList.remove("cart-bump");
@@ -536,9 +532,26 @@
           y: 0,
           duration: 1,
           ease: "power3.out",
-          scrollTrigger: { trigger: el, start: "top 90%" }
+          scrollTrigger: {
+            trigger: el,
+            start: "top 95%",
+            // Sections already scrolled into view by the time GSAP finishes
+            // loading (very common on mobile, since GSAP is deferred and can
+            // arrive a beat after first paint) previously never fired their
+            // ScrollTrigger at all — the trigger point had already been
+            // passed, so the element sat at opacity:0 forever with no scroll
+            // event left to trigger it. once() plus an immediate refresh
+            // below fixes that: ScrollTrigger checks each trigger's current
+            // position right away instead of only reacting to future scrolls.
+            once: true,
+          }
         });
       });
+      // Re-measure trigger positions now that all .fade-up tweens exist —
+      // without this, ScrollTrigger can use stale layout measurements taken
+      // before fonts/images finished sizing the page, which is the other
+      // common cause of a trigger's "start" point being calculated wrong.
+      ScrollTrigger.refresh();
       return true;
     }
     function revealWithCSSFallback() {
@@ -560,6 +573,19 @@
           if (!revealed) revealWithCSSFallback();
         }
       }, 150);
+    });
+    // Belt-and-braces: if the page finishes loading fully (images, fonts) and
+    // for any reason .fade-up content is still sitting at opacity:0 — GSAP
+    // present but a trigger silently never fired, or any other edge case —
+    // force the plain-CSS reveal so nothing is ever permanently invisible.
+    window.addEventListener("load", function () {
+      setTimeout(function () {
+        document.querySelectorAll(".fade-up").forEach((el) => {
+          if (getComputedStyle(el).opacity === "0") {
+            el.classList.add("fade-up-fallback-in");
+          }
+        });
+      }, 1200);
     });
   })();
 </script>
@@ -652,12 +678,10 @@
 
   /* ---------------- Ambient micro-sound (always on, no visible toggle) ------
      A tiny synthesized chime (Web Audio API — no audio file to host/load)
-     that plays on interactions like "add to cart". Previously required a
-     visible toggle button to opt in (off by default); now it plays
-     automatically since there's no UI control for it. The AudioContext still
-     only starts on the first real click (browsers require a user gesture to
-     unlock audio), so this remains fully autoplay-policy compliant — the
-     first "Add to Cart" tap is that gesture. */
+     that plays on interactions like "add to cart". Plays automatically since
+     there's no UI control for it — the AudioContext only starts on the first
+     real click (browsers require a user gesture to unlock audio), so this
+     remains fully autoplay-policy compliant. */
   (function () {
     var ctx = null;
     function ensureCtx() {
@@ -681,9 +705,7 @@
       } catch (e) { /* ambient sound is a nice-to-have, never block the UI on failure */ }
     };
     // Play the chime on primary action buttons site-wide (Add to Cart, Submit
-    // Review, Apply Filters, etc.) via one delegated listener, rather than
-    // wiring danuPlayChime() into every individual button — this also
-    // automatically covers new .btn-luxury buttons added later.
+    // Review, Apply Filters, etc.) via one delegated listener.
     document.addEventListener("click", function (e) {
       if (e.target.closest(".btn-luxury")) window.danuPlayChime();
     });
@@ -715,11 +737,10 @@
   /* ---------------- Install App (PWA): service worker + install prompt ----
      1. Registers sw.js so the browser recognizes this as an installable app
         (a prerequisite for Chrome's beforeinstallprompt to ever fire).
-     2. Captures beforeinstallprompt instead of letting Chrome show its own
-        generic mini-infobar, so the branded "Install App" button controls
-        exactly when/how the native prompt appears.
-     3. iOS Safari never fires beforeinstallprompt (no such API exists there),
-        so on iOS the button instead opens a small manual-steps card. */
+     2. Captures beforeinstallprompt so the branded "Install App" button
+        controls exactly when the native prompt appears.
+     3. iOS Safari never fires beforeinstallprompt, so on iOS the button
+        instead opens a small manual-steps card. */
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () {
       navigator.serviceWorker.register("{{ url_for('static', filename='sw.js') }}").catch(function () {
@@ -738,19 +759,17 @@
         this.isIos = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
         const isStandalone =
           window.matchMedia("(display-mode: standalone)").matches ||
-          window.navigator.standalone === true; // iOS-specific standalone flag
+          window.navigator.standalone === true;
 
         if (isStandalone) return; // already installed — never show the button
 
         if (this.isIos) {
-          // iOS: no install-prompt event will ever fire, so just show the
-          // button now; tapping it opens the manual Share-sheet instructions.
           this.showButton = true;
           return;
         }
 
         window.addEventListener("beforeinstallprompt", (e) => {
-          e.preventDefault(); // stop Chrome's own mini-infobar
+          e.preventDefault();
           this.deferredPrompt = e;
           this.showButton = true;
         });

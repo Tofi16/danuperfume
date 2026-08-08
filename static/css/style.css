@@ -333,6 +333,22 @@ main {
   background: linear-gradient(90deg, #b8383f, #e0555c);
 }
 
+/* ---------------- Checkout: compact delivery-method chip ---------------- */
+.delivery-chip {
+  border: 1px solid rgba(203, 178, 106, 0.2);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(237, 228, 209, 0.65);
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+  min-height: 56px;
+}
+.delivery-chip.active {
+  border-color: var(--danu-gold);
+  background: rgba(203, 178, 106, 0.1);
+  color: var(--danu-gold-light);
+}
+[data-theme="light"] .delivery-chip { background: rgba(156, 122, 46, 0.04); }
+[data-theme="light"] .delivery-chip.active { background: rgba(156, 122, 46, 0.12); }
+
 /* Golden idea: hero CTA buttons can carry long admin-entered promo text
    (e.g. long Amharic phrases) — instead of an ugly ragged 2-line wrap,
    balance the break point and let the font size flex a touch. */
@@ -696,23 +712,6 @@ input:focus, textarea:focus, select:focus {
 .badge-delivered { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.4); }
 .badge-cancelled { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.4); }
 
-/* ---------------- Checkout: compact delivery-method chip ---------------- */
-.delivery-chip {
-  border: 1px solid rgba(203, 178, 106, 0.2);
-  background: rgba(255, 255, 255, 0.02);
-  color: rgba(237, 228, 209, 0.65);
-  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
-  min-height: 56px;
-}
-.delivery-chip.active {
-  border-color: var(--danu-gold);
-  background: rgba(203, 178, 106, 0.1);
-  color: var(--danu-gold-light);
-}
-[data-theme="light"] .delivery-chip { background: rgba(156, 122, 46, 0.04); }
-[data-theme="light"] .delivery-chip.active { background: rgba(156, 122, 46, 0.12); }
-
-
 /* ==========================================================================
    Phase 2 additions — logo flourish, toast, cursor, mesh bg, timeline, etc.
    ========================================================================== */
@@ -768,7 +767,7 @@ input:focus, textarea:focus, select:focus {
 }
 @media (max-width: 640px) {
   .install-app-btn { bottom: 16px; left: 16px; padding: 0.55rem 0.9rem 0.55rem 0.65rem; font-size: 0.68rem; }
-  .install-app-btn span { display: none; } /* icon-only on very small screens to avoid crowding */
+  .install-app-btn span { display: none; }
 }
 
 .install-ios-sheet {
@@ -1241,9 +1240,8 @@ button, a, input, select, textarea, .btn-luxury {
 }
 .mobile-nav-panel a { display: block; padding: 0.6rem 1rem; }
 
-/* Light theme parity — this panel was previously hardcoded to a dark plum
-   background regardless of the day/night toggle, so switching to light mode
-   never changed it (the exact "outside light/dark control" bug reported). */
+/* Light theme parity — without this the panel stays dark plum regardless of
+   the day/night toggle. */
 [data-theme="light"] .mobile-nav-panel {
   background: rgba(250, 246, 239, 0.98);
   border-bottom-color: rgba(156, 122, 46, 0.15);
