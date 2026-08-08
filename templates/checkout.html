@@ -61,37 +61,34 @@
         <input type="hidden" name="delivery_fee" value="{{ proposed_fee }}">
 
         <!-- ===== STEP 1 : DELIVERY ===== -->
-        <div x-show="step === 1" x-cloak class="space-y-5 animate__animated animate__fadeIn">
+        <div x-show="step === 1" x-cloak class="space-y-4 animate__animated animate__fadeIn">
           <h2 class="font-serif text-xl text-danu-goldlight mb-1">Delivery Details</h2>
-          <p class="text-xs text-danu-cream/50 mb-4">Where should we send your order?</p>
+          <p class="text-xs text-danu-cream/50 mb-3">Where should we send your order?</p>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.full_name') }}</label>
+              <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-1.5">{{ t('checkout.full_name') }}</label>
               <input type="text" name="customer_name" :required="step === 1"
                      value="{{ current_user.full_name if current_user.is_authenticated and not current_user.is_admin|default(false) else '' }}"
-                     class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+                     class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
             </div>
             <div>
-              <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.phone') }}</label>
-              <input type="tel" name="customer_phone" :required="step === 1" placeholder="+251 9XX XXX XXX"
+              <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-1.5">{{ t('checkout.phone') }}</label>
+              <input type="tel" name="customer_phone" :required="step === 1" placeholder="+251 9XX..."
                      value="{{ current_user.phone if current_user.is_authenticated and not current_user.is_admin|default(false) and current_user.phone else '' }}"
-                     class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+                     class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
             </div>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
-              <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">City / Town</label>
+              <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-1.5">City / Town</label>
               <input type="text" name="city" :required="step === 1" placeholder="e.g. Addis Ababa"
-                     class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+                     class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
             </div>
             <div x-data="{ query: '', results: [], open: false, selectedName: '' }" @click.outside="open = false" class="relative">
-              <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Nearest Post Office</label>
+              <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-1.5">Post Office</label>
               <input type="text" x-model="query" @input.debounce.300ms="query.length > 1 ? fetch('{{ url_for('api_post_offices') }}?query=' + encodeURIComponent(query)).then(r => r.json()).then(d => { results = d.results; open = true; }) : (results = [], open = false)"
                      @focus="query.length > 1 && (open = true)"
-                     placeholder="Search city or office name..."
-                     class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold">
+                     placeholder="Search..."
+                     class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-danu-gold">
               <input type="hidden" name="post_office_location" :value="selectedName">
 
               <div x-show="open && results.length" x-cloak
@@ -110,20 +107,20 @@
           </div>
 
           <div>
-            <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">{{ t('checkout.address') }}</label>
+            <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-1.5">{{ t('checkout.address') }}</label>
             <textarea name="delivery_address" rows="2" :required="step === 1"
-                      class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-danu-gold"></textarea>
+                      class="w-full bg-transparent border border-danu-gold/25 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-danu-gold"></textarea>
           </div>
 
           <div>
-            <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-2">Delivery Method</label>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label class="block text-xs uppercase tracking-widest text-danu-goldlight mb-1.5">Delivery Method</label>
+            <div class="grid grid-cols-3 gap-2">
               {% for option in delivery_options %}
-              <label class="glass-card rounded-xl p-3 flex items-center gap-2 cursor-pointer text-sm"
-                     :class="deliveryType === '{{ option }}' && 'border-danu-gold'">
+              <label class="delivery-chip rounded-lg py-2.5 px-1.5 flex flex-col items-center justify-center gap-1 cursor-pointer text-center"
+                     :class="deliveryType === '{{ option }}' && 'active'">
                 <input type="radio" name="delivery_type" value="{{ option }}" x-model="deliveryType"
-                       {% if loop.first %}checked{% endif %} class="accent-danu-gold">
-                {{ option }}
+                       {% if loop.first %}checked{% endif %} class="sr-only">
+                <span class="text-[0.68rem] leading-tight">{{ option }}</span>
               </label>
               {% endfor %}
             </div>
